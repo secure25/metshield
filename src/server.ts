@@ -48,6 +48,20 @@ app.get('/api/world/accounts', (req, res) => {
   );
 });
 
+app.get('/api/world/events', (req, res) => {
+  const seed = parseSeed(req.query.seed);
+  const world = getWorld(seed);
+  const lim = req.query.limit;
+  if (typeof lim === 'string' && lim.length > 0) {
+    const n = Number.parseInt(lim, 10);
+    if (Number.isFinite(n) && n >= 0) {
+      res.json(n === 0 ? [] : world.events.slice(-n));
+      return;
+    }
+  }
+  res.json(world.events);
+});
+
 app.get('/api/world/accounts/:id', (req, res) => {
   const seed = parseSeed(req.query.seed);
   const world = getWorld(seed);

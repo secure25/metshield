@@ -2,6 +2,7 @@ import { simulatedAtFor, DEFAULT_SCALE } from './clock.js';
 import { createRng } from './rng.js';
 import { generatePopulation } from './population.js';
 import { generateGraph } from './graph.js';
+import { advanceMinutes, BOOT_MINUTES, calibrationScale } from './activity.js';
 import type { WorldState, WorldSummary } from './types.js';
 
 export const DEFAULT_SEED = 20261026;
@@ -11,14 +12,20 @@ export function createWorldState(seed: number = DEFAULT_SEED): WorldState {
   void rng;
   const tick = 0;
   const accounts = generatePopulation(seed);
-  return {
+  const state: WorldState = {
     seed,
     tick,
     simulatedAt: simulatedAtFor(tick),
     scale: DEFAULT_SCALE,
+    rateScale: calibrationScale(accounts),
     accounts,
-    graph: generateGraph(seed, accounts)
+    graph: generateGraph(seed, accounts),
+    events: [],
+    seq: 0,
+    pending: []
   };
+  advanceMinutes(state, BOOT_MINUTES);
+  return state;
 }
 
 export function getWorldSummary(state: WorldState): WorldSummary {

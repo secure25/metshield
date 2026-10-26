@@ -1,4 +1,4 @@
-import type { Surface } from '../contract.js';
+import type { Surface, Indicator } from '../contract.js';
 
 export type AccountKind = 'person' | 'business';
 export type AccountRole = 'legit' | 'shell' | 'operator' | 'taken_over';
@@ -72,13 +72,55 @@ export interface WorldGraph {
   bridges: Record<string, BridgeTie>;
 }
 
+export type EventType =
+  | 'ad_published'
+  | 'post_published'
+  | 'post_seen'
+  | 'reaction_added'
+  | 'comment_posted'
+  | 'message_sent'
+  | 'group_invite_sent'
+  | 'group_joined'
+  | 'link_shared'
+  | 'payment_request_shown'
+  | 'credential_request_shown'
+  | 'payment_attempted'
+  | 'account_taken_over'
+  | 'account_recovered'
+  | 'warning_shown';
+
+export interface WorldEvent {
+  id: string;
+  simMinute: number;
+  seq: number;
+  type: EventType;
+  surface: Surface;
+  actorId: string;
+  targetId?: string;
+  groupId?: string;
+  indicators: Indicator[];
+  claimCodes: string[];
+  surfaceText: string;
+}
+
+export interface PendingMessage {
+  to: string;
+  from: string;
+  surface: Surface;
+  since: number;
+}
+
 export interface WorldState {
   seed: number;
   tick: number;
   simulatedAt: string;
   scale: number;
+  rateScale: Record<Surface, number>;
   accounts: WorldAccount[];
   graph: WorldGraph;
+  events: WorldEvent[];
+  seq: number;
+  pending: PendingMessage[];
 }
 
 export interface WorldSummary {
