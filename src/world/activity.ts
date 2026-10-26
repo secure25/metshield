@@ -1,6 +1,8 @@
 import { createRng, nextInt } from './rng.js';
 import { simulatedAtFor } from './clock.js';
 import { hashSeedString } from './population.js';
+import { runCampaigns } from './campaigns.js';
+import { runJourneys } from './journeys.js';
 import { contactsOf } from './graph.js';
 import type { Surface, Indicator } from '../contract.js';
 import type { WorldAccount, WorldEvent, WorldState, WorldGroup, EventType } from './types.js';
@@ -447,6 +449,9 @@ export function stepMinute(state: WorldState): void {
       if (page) doAd(page);
     }
   }
+
+  runCampaigns(state, tick, rng, ev);
+  runJourneys(state, tick, rng, ev);
 }
 
 export function advanceMinutes(state: WorldState, n: number): void {

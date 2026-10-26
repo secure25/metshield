@@ -62,6 +62,11 @@ app.get('/api/world/events', (req, res) => {
   res.json(world.events);
 });
 
+app.get('/api/world/campaigns', (req, res) => {
+  const seed = parseSeed(req.query.seed);
+  res.json(getWorld(seed).campaigns);
+});
+
 app.get('/api/world/accounts/:id', (req, res) => {
   const seed = parseSeed(req.query.seed);
   const world = getWorld(seed);

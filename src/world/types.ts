@@ -110,6 +110,57 @@ export interface PendingMessage {
   since: number;
 }
 
+export type TemplateKey =
+  | 'investment-funnel'
+  | 'advance-fee-prize'
+  | 'brand-support'
+  | 'marketplace-diversion'
+  | 'account-recovery'
+  | 'group-investment-room'
+  | 'fake-delivery'
+  | 'romance-investment';
+
+export type CampaignStage = 'publish' | 'exposure' | 'contact' | 'lure' | 'request' | 'cashout';
+
+export type CampaignOutcome = 'cashed_out' | 'stalled';
+
+export interface CampaignTrailEntry {
+  stage: CampaignStage;
+  surface: Surface;
+  actorId: string;
+  atMinute: number;
+}
+
+export interface Campaign {
+  id: string;
+  templateKey: TemplateKey;
+  operationId: string;
+  stage: CampaignStage;
+  path: Surface[];
+  startedAt: number;
+  targetPersonId: string;
+  entryAccountId: string;
+  currentActorId: string;
+  nextAt: number | null;
+  trail: CampaignTrailEntry[];
+  amount?: number;
+  outcome?: CampaignOutcome | null;
+}
+
+export interface Operation {
+  id: string;
+  memberIds: string[];
+}
+
+export type JourneyKind = 'order' | 'invite' | 'friendpay' | 'support';
+
+export interface Journey {
+  id: string;
+  kind: JourneyKind;
+  atMinute: number;
+  actorIds: string[];
+}
+
 export interface WorldState {
   seed: number;
   tick: number;
@@ -121,6 +172,9 @@ export interface WorldState {
   events: WorldEvent[];
   seq: number;
   pending: PendingMessage[];
+  operations: Operation[];
+  campaigns: Campaign[];
+  journeys: Journey[];
 }
 
 export interface WorldSummary {

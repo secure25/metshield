@@ -39,15 +39,31 @@ describe('activity W3', () => {
   });
 
   it('sends messages over mutual edges with replies on both ends', () => {
+    // W4 correction: the old expectation (every message has a mutual edge) is wrong
+    // because cold first contact is a designed phenomenon — cross-surface campaign
+    // hops message victims where no edge can be assumed. Such conversations carry
+    // the unsolicited_contact indicator from their first message, so the corrected
+    // rule is: conversations that started cold stay cold; every other message
+    // needs its mutual edge. Same-surface still holds for all messages.
     const state = createWorldState(7);
     const g = state.graph;
     const byId = new Map(state.accounts.map((a) => [a.id, a]));
     const msgs = state.events.filter((e) => e.type === 'message_sent');
     expect(msgs.length).toBeGreaterThan(0);
+    const pairKey = (m: (typeof msgs)[number]): string => [m.actorId, m.targetId ?? ''].sort().join('>');
+    const firstByPair = new Map<string, (typeof msgs)[number]>();
+    for (const m of msgs) {
+      const k = pairKey(m);
+      if (!firstByPair.has(k)) firstByPair.set(k, m);
+    }
+    const coldPair = (m: (typeof msgs)[number]): boolean =>
+      firstByPair.get(pairKey(m))?.indicators.some((i) => i.kind === 'unsolicited_contact') ?? false;
     for (const m of msgs) {
       expect(m.targetId).toBeDefined();
-      expect(contactsOf(g, m.actorId)).toContain(m.targetId);
       expect(byId.get(m.actorId)?.surface).toBe(byId.get(m.targetId ?? '')?.surface);
+      if (!coldPair(m)) {
+        expect(contactsOf(g, m.actorId)).toContain(m.targetId);
+      }
     }
     const pairs = new Set(msgs.map((m) => `${m.actorId}>${m.targetId}`));
     let bidi = 0;

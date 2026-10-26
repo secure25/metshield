@@ -1,4 +1,4 @@
-# MetShield (W3) — synthetic fixture
+# MetShield (W4) — synthetic fixture
 
 MetShield is a synthetic scam-protection demo. Nothing here is a real Meta
 product, a real user, or real data. All accounts, handles, domains, and phone
@@ -11,12 +11,14 @@ numbers are invented in obviously synthetic form.
 - `src/world/` — seeded RNG, simulated clock, population generation
   (480 accounts, 338 persons, personas from `(seed, personId)`), graph
   (mutual contacts, business followers, groups, cross-surface bridges),
-  activity (1-minute ticks, 15 closed event types, templated copy), and the
-  world state container.
+  activity (1-minute ticks, 15 closed event types, templated copy),
+  campaigns (4 scam operations, 8 templates, 6-stage machine with hops),
+  benign mirror journeys, and the world state container.
 - `src/server.ts` — one Express server that serves the API and the console.
 - `src/console/` — a minimal React console that prints the world clock.
 - `tests/` — determinism, contract privacy boundary, no-unseeded-randomness,
-  population, graph, activity (rate, replies, validity, commerce, replay).
+  population, graph, activity, campaigns (funnel rate, hop rules, template
+  coverage, journeys, cashout/takeover).
 
 Population: 480 accounts across facebook, whatsapp, messenger; 338 persons
 (223×1, 88×2, 27×3 accounts); 48 scam-controlled (8 operator, 40 shell);
@@ -59,9 +61,34 @@ Event types (closed, 15): ad_published, post_published, post_seen,
 reaction_added, comment_posted, message_sent, group_invite_sent,
 group_joined, link_shared, payment_request_shown, credential_request_shown,
 payment_attempted, account_taken_over, account_recovered, warning_shown.
-The benign engine emits 11 of these; `credential_request_shown`,
-`account_taken_over`, `account_recovered`, and `warning_shown` are defined
-and typed but only emitted by the campaign (W4) and outcome (W5) phases.
+The benign engine emits 11 of these; campaigns add `credential_request_shown`
+and `account_taken_over`. `account_recovered` and `warning_shown` stay
+defined-but-unemitted for the outcome phase (W5).
+
+Campaigns: 8 operators + 40 shells form 4 operations (`OP-1`–`OP-4`, 2
+operators + 10 shells each, round-robin by id). Each operation runs one
+campaign from a uniform random template. The stage machine runs publish →
+exposure → contact → lure → request → cashout with per-stage delay ranges;
+the lure stage hops to the next path surface (and cashout to the third on
+3-surface paths). A hop picks an operation account on the target surface
+held by a different person — never the same account, never the same person —
+preferring one that already shares an edge with the victim, else cold with
+an `unsolicited_contact` indicator. No edges are ever invented. Each
+campaign targets a legitimate person (all accounts legit) covering the full
+path and adjacent to the operation on the first surface; without one the
+operation skips that seed. Cashout pays out with probability
+`gullibility × 0.35`; credential templates cash out via `account_taken_over`
+and flip the victim account to `taken_over`.
+
+Claim codes deliberately overlap between scams and benign traffic (`offer`,
+`urgent`, `delivery`, `support` appear on both) so the codes alone do not
+separate; distinctive codes (`prize`, `investment`, `account-alert`) mark
+distinctive claims. Romance grooming carries no indicators until the ask.
+
+Benign journeys (1 per kind per day, deterministic ticks): a retailer's
+order link, a friend's group invite, a friend-to-friend payment request
+(`split-bill`), and a business support thread (`support`) — all between
+legitimate mutual contacts, structurally mirroring the scams.
 
 ## Run
 
@@ -82,6 +109,8 @@ http://localhost:5173 in a browser.
   linkedAccounts: [{ id, surface }], bridge | null }`
 - `GET /api/world/events` → the event feed in seq order (`?limit=N` for the
   last N; `?seed=` works on all world routes)
+- `GET /api/world/campaigns` → campaigns with the stage trail (surface per
+  stage for chips) plus operation, template, target, amount, outcome
 
 ## Checks
 
@@ -90,6 +119,23 @@ cd metshield
 npm test
 npm run check
 ```
+
+## Changed in W4 (and why)
+
+- New `src/world/campaigns.ts`: operations, 8 templates, spawn targeting,
+  6-stage machine, hop picker, cashout/takeover. Required by W4.
+- New `src/world/journeys.ts`: 4 benign mirror journeys on deterministic
+  day-ticks. Required by W4.
+- `WorldState` gained `operations`, `campaigns`, `journeys`; the tick loop
+  runs campaigns and journeys after benign activity.
+- New `GET /api/world/campaigns`. Required by W4 acceptance.
+- W3 message test corrected (see its comment): conversations that start
+  with an `unsolicited_contact` first message are exempt from the
+  mutual-edge rule; every other message still needs its edge, and
+  same-surface still holds for all. The old expectation (no cold contact
+  exists) contradicts the contract's own indicator and W4's required
+  cross-surface first contact.
+- `population.ts`, `graph.ts`, `contract.ts` untouched.
 
 ## Changed in W3 (and why)
 
@@ -102,9 +148,11 @@ npm run check
 - New `GET /api/world/events` with `?limit=`. Required by W3 acceptance.
 - `population.ts`, `graph.ts`, `contract.ts` untouched.
 
-## Left out (W3)
+## Left out (W4)
 
-- Campaigns (W4), outcomes (W5), observation feed (W6), console views (W7).
-- No advance endpoint yet (`advanceMinutes` exists; no HTTP route).
+- Outcomes/recovery (W5), observation feed (W6), console views (W7).
+- No advance endpoint yet (`advanceMinutes` exists; no HTTP route), so the
+  running server sits at boot tick +180 with early-stage campaigns.
+- No operations listing route.
 - Console still prints state JSON only.
 - Any product-side correlation, model, card, or validator.

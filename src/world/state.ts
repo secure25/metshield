@@ -3,6 +3,7 @@ import { createRng } from './rng.js';
 import { generatePopulation } from './population.js';
 import { generateGraph } from './graph.js';
 import { advanceMinutes, BOOT_MINUTES, calibrationScale } from './activity.js';
+import { formOperations, spawnCampaigns } from './campaigns.js';
 import type { WorldState, WorldSummary } from './types.js';
 
 export const DEFAULT_SEED = 20261026;
@@ -12,6 +13,8 @@ export function createWorldState(seed: number = DEFAULT_SEED): WorldState {
   void rng;
   const tick = 0;
   const accounts = generatePopulation(seed);
+  const graph = generateGraph(seed, accounts);
+  const operations = formOperations(accounts);
   const state: WorldState = {
     seed,
     tick,
@@ -19,10 +22,13 @@ export function createWorldState(seed: number = DEFAULT_SEED): WorldState {
     scale: DEFAULT_SCALE,
     rateScale: calibrationScale(accounts),
     accounts,
-    graph: generateGraph(seed, accounts),
+    graph,
     events: [],
     seq: 0,
-    pending: []
+    pending: [],
+    operations,
+    campaigns: spawnCampaigns(seed, accounts, graph, operations),
+    journeys: []
   };
   advanceMinutes(state, BOOT_MINUTES);
   return state;
