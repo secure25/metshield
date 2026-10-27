@@ -28,7 +28,8 @@ export function createWorldState(seed: number = DEFAULT_SEED): WorldState {
     pending: [],
     operations,
     campaigns: spawnCampaigns(seed, accounts, graph, operations),
-    journeys: []
+    journeys: [],
+    recoveries: []
   };
   advanceMinutes(state, BOOT_MINUTES);
   return state;

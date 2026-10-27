@@ -171,6 +171,7 @@ interface EvOpts {
   indicators?: Indicator[];
   claimCodes?: string[];
   surfaceText: string;
+  payload?: { reason: string };
 }
 
 function sampleOthers(rng: () => number, ids: string[], exclude: Set<string>, n: number): string[] {
@@ -217,6 +218,7 @@ export function stepMinute(state: WorldState): void {
     };
     if (opts.targetId !== undefined) e.targetId = opts.targetId;
     if (opts.groupId !== undefined) e.groupId = opts.groupId;
+    if (opts.payload !== undefined) e.payload = { reason: opts.payload.reason };
     state.events.push(e);
   }
 
@@ -452,6 +454,18 @@ export function stepMinute(state: WorldState): void {
 
   runCampaigns(state, tick, rng, ev);
   runJourneys(state, tick, rng, ev);
+
+  if (state.recoveries.length > 0) {
+    const due = state.recoveries.filter((r) => tick >= r.atMinute);
+    state.recoveries = state.recoveries.filter((r) => tick < r.atMinute);
+    for (const r of due) {
+      const acct = byId.get(r.accountId);
+      if (acct && acct.role === 'taken_over') {
+        acct.role = 'legit';
+        ev('account_recovered', acct.surface, acct.id, { surfaceText: 'Account recovered.' });
+      }
+    }
+  }
 }
 
 export function advanceMinutes(state: WorldState, n: number): void {

@@ -1,4 +1,4 @@
-# MetShield (W4) — synthetic fixture
+# MetShield (W5) — synthetic fixture
 
 MetShield is a synthetic scam-protection demo. Nothing here is a real Meta
 product, a real user, or real data. All accounts, handles, domains, and phone
@@ -18,7 +18,8 @@ numbers are invented in obviously synthetic form.
 - `src/console/` — a minimal React console that prints the world clock.
 - `tests/` — determinism, contract privacy boundary, no-unseeded-randomness,
   population, graph, activity, campaigns (funnel rate, hop rules, template
-  coverage, journeys, cashout/takeover).
+  coverage, journeys, cashout/takeover), outcomes (compliance quartiles,
+  recovery, warning shape, once-only).
 
 Population: 480 accounts across facebook, whatsapp, messenger; 338 persons
 (223×1, 88×2, 27×3 accounts); 48 scam-controlled (8 operator, 40 shell);
@@ -76,9 +77,25 @@ preferring one that already shares an edge with the victim, else cold with
 an `unsolicited_contact` indicator. No edges are ever invented. Each
 campaign targets a legitimate person (all accounts legit) covering the full
 path and adjacent to the operation on the first surface; without one the
-operation skips that seed. Cashout pays out with probability
-`gullibility × 0.35`; credential templates cash out via `account_taken_over`
-and flip the victim account to `taken_over`.
+operation skips that seed.
+
+Outcomes: at the request stage the victim's verdict is rolled once —
+comply with probability `gullibility × 0.35`, else report with probability
+`vigilance × 0.5`, else ignore. Cashout enacts the verdict: comply emits
+`payment_attempted` with the campaign loss amount, or for credential
+templates emits `account_taken_over`, flips that one account to
+`taken_over` (personId and sibling accounts untouched), and schedules
+recovery in 1–3 days; report and ignore end the campaign with no transfer.
+The outcome is written exactly once at cashout (or at the stall point) and
+never recomputed. Recovery is a timed queue: when due, a still-taken-over
+account flips back to `legit` and emits `account_recovered`, once.
+
+Existing-product warnings fire at the request stage with probability
+`1 - vigilance / 1.4`, carrying a deliberately thin payload —
+`{ reason: 'this contact may be a scam' }` — enforced by the type
+(`payload?: { reason: string }`, set only on `warning_shown`) and asserted
+by test. It is thin on purpose: the product's argument is that this
+warning cannot help, and enriching it would remove the gap.
 
 Claim codes deliberately overlap between scams and benign traffic (`offer`,
 `urgent`, `delivery`, `support` appear on both) so the codes alone do not
@@ -120,6 +137,22 @@ npm test
 npm run check
 ```
 
+## Changed in W5 (and why)
+
+- Verdict rolled once at the request stage (`comply` / `report` / `ignore`
+  from gullibility then vigilance); cashout only enacts it. Previously the
+  roll happened inside cashout; moving the decision to the request matches
+  the phase spec with identical timing and odds.
+- `warning_shown` now emitted at request with probability
+  `1 - vigilance / 1.4` and payload `{ reason }`, typed so enrichment is a
+  compile error. This adds optional `payload` to `WorldEvent` — the only
+  W3 event-schema change, required by the phase's explicit payload spec.
+- Timed recovery queue: takeover schedules restore in 1–3 days; firing
+  flips `taken_over` back to `legit` and emits `account_recovered` once
+  (skipped silently if the role already changed).
+- `CampaignOutcome` gained `reported`; `Campaign` gained `verdict`.
+- `population.ts`, `graph.ts`, `contract.ts` untouched.
+
 ## Changed in W4 (and why)
 
 - New `src/world/campaigns.ts`: operations, 8 templates, spawn targeting,
@@ -148,9 +181,10 @@ npm run check
 - New `GET /api/world/events` with `?limit=`. Required by W3 acceptance.
 - `population.ts`, `graph.ts`, `contract.ts` untouched.
 
-## Left out (W4)
+## Left out (W5)
 
-- Outcomes/recovery (W5), observation feed (W6), console views (W7).
+- Observation feed (W6), console views (W7).
+- Taken-over accounts keep benign behavior; attacker use of them is cut.
 - No advance endpoint yet (`advanceMinutes` exists; no HTTP route), so the
   running server sits at boot tick +180 with early-stage campaigns.
 - No operations listing route.

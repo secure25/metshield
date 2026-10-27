@@ -19,6 +19,7 @@ export interface StageEmitOpts {
   indicators?: Indicator[];
   claimCodes?: string[];
   surfaceText: string;
+  payload?: { reason: string };
 }
 
 export type StageEmit = (type: EventType, surface: Surface, actorId: string, opts: StageEmitOpts) => void;
@@ -212,6 +213,10 @@ const NEXT_STAGE: Record<CampaignStage, CampaignStage | null> = {
 const VICTIM_REPLIES = ['tell me more', 'ok', 'is this real?', 'who is this?', 'go on'];
 const PRODUCT_SUFFIX = ['kit', 'guide', 'bundle', 'workshop pass'];
 const CASHOUT_RATE = 0.35;
+const REPORT_RATE = 0.5;
+const RECOVERY_DELAY: [number, number] = [1440, 4320];
+
+export const WARNING_REASON = 'this contact may be a scam';
 
 function fill(tpl: string, vars: Record<string, string>): string {
   return tpl.replace(/\{(\w+)\}/g, (_m: string, k: string) => vars[k] ?? `{${k}}`);
@@ -527,6 +532,20 @@ function runStage(ctx: RunCtx, c: Campaign): void {
       });
     }
     sendMessage(ctx, c.currentActorId, victim.id, surface, fill(spec.requestText, vars));
+    if (ctx.rng() < victim.persona.gullibility * CASHOUT_RATE) {
+      c.verdict = 'comply';
+    } else if (ctx.rng() < victim.persona.vigilance * REPORT_RATE) {
+      c.verdict = 'report';
+    } else {
+      c.verdict = 'ignore';
+    }
+    if (ctx.rng() < 1 - victim.persona.vigilance / 1.4) {
+      ctx.emit('warning_shown', surface, victim.id, {
+        targetId: c.currentActorId,
+        surfaceText: 'This contact may be a scam.',
+        payload: { reason: WARNING_REASON }
+      });
+    }
     trail(surface, c.currentActorId);
     scheduleNext();
     return;
@@ -550,7 +569,7 @@ function runStage(ctx: RunCtx, c: Campaign): void {
     c.currentActorId = hop.id;
   }
   trail(surface, c.currentActorId);
-  if (ctx.rng() < victim.persona.gullibility * CASHOUT_RATE) {
+  if (c.verdict === 'comply') {
     if (spec.kind === 'payment') {
       ctx.emit('payment_attempted', surface, victim.id, {
         targetId: c.currentActorId,
@@ -566,8 +585,14 @@ function runStage(ctx: RunCtx, c: Campaign): void {
         surfaceText: 'Account access granted.'
       });
       victim.role = 'taken_over';
+      ctx.state.recoveries.push({
+        accountId: victim.id,
+        atMinute: tick + nextInt(ctx.rng, RECOVERY_DELAY[0], RECOVERY_DELAY[1] + 1)
+      });
     }
     c.outcome = 'cashed_out';
+  } else if (c.verdict === 'report') {
+    c.outcome = 'reported';
   } else {
     c.outcome = 'stalled';
   }

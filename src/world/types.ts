@@ -101,6 +101,7 @@ export interface WorldEvent {
   indicators: Indicator[];
   claimCodes: string[];
   surfaceText: string;
+  payload?: { reason: string };
 }
 
 export interface PendingMessage {
@@ -108,6 +109,11 @@ export interface PendingMessage {
   from: string;
   surface: Surface;
   since: number;
+}
+
+export interface PendingRecovery {
+  accountId: string;
+  atMinute: number;
 }
 
 export type TemplateKey =
@@ -122,7 +128,9 @@ export type TemplateKey =
 
 export type CampaignStage = 'publish' | 'exposure' | 'contact' | 'lure' | 'request' | 'cashout';
 
-export type CampaignOutcome = 'cashed_out' | 'stalled';
+export type CampaignOutcome = 'cashed_out' | 'stalled' | 'reported';
+
+export type Verdict = 'comply' | 'report' | 'ignore';
 
 export interface CampaignTrailEntry {
   stage: CampaignStage;
@@ -145,6 +153,7 @@ export interface Campaign {
   trail: CampaignTrailEntry[];
   amount?: number;
   outcome?: CampaignOutcome | null;
+  verdict?: Verdict | null;
 }
 
 export interface Operation {
@@ -175,6 +184,7 @@ export interface WorldState {
   operations: Operation[];
   campaigns: Campaign[];
   journeys: Journey[];
+  recoveries: PendingRecovery[];
 }
 
 export interface WorldSummary {
