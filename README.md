@@ -1,4 +1,4 @@
-# MetShield (W5) — synthetic fixture
+# MetShield (W6) — synthetic fixture
 
 MetShield is a synthetic scam-protection demo. Nothing here is a real Meta
 product, a real user, or real data. All accounts, handles, domains, and phone
@@ -19,7 +19,8 @@ numbers are invented in obviously synthetic form.
 - `tests/` — determinism, contract privacy boundary, no-unseeded-randomness,
   population, graph, activity, campaigns (funnel rate, hop rules, template
   coverage, journeys, cashout/takeover), outcomes (compliance quartiles,
-  recovery, warning shape, once-only).
+  recovery, warning shape, once-only), feed (projection, surfaceText
+  exclusion, canary, no-truth-import, auth, paging).
 
 Population: 480 accounts across facebook, whatsapp, messenger; 338 persons
 (223×1, 88×2, 27×3 accounts); 48 scam-controlled (8 operator, 40 shell);
@@ -128,6 +129,15 @@ http://localhost:5173 in a browser.
   last N; `?seed=` works on all world routes)
 - `GET /api/world/campaigns` → campaigns with the stage trail (surface per
   stage for chips) plus operation, template, target, amount, outcome
+- `GET /api/world/events/:id`, `GET /api/world/campaigns/:id` → detail records
+- `GET /api/world/integrity` → metering counters (sent + four leak gauges)
+- `GET /api/world/truth` → ground labels (operator only)
+- `GET /api/world/observations` → public cursor feed (`?cursor=N&limit=M`,
+  no header required)
+- `POST /api/world/control` with `{ minutes }` → advance the simulation
+
+All routes except observations require `x-operator-key: metshield-local-operator`
+(fixture key). `?seed=` works on all world GET routes.
 
 ## Checks
 
@@ -136,6 +146,52 @@ cd metshield
 npm test
 npm run check
 ```
+
+## The public feed (W6)
+
+`project(event)` maps each world event to one `Observation`: `world:`-prefixed
+id, event id as externalRef, source `world`, observedAt from the simulated
+clock at the event minute (ISO string, per the W0 contract — never wall
+time), surface and eventKind through closed maps (payment/takeover/recovery/
+warning kinds collapse lossily to `message`: the contract's five kinds are
+coarse by design), actor/subject/thread refs, indicators and claim codes
+passed through, consent `none`, synthetic true. Rendered copy, payloads, and
+anything the contract does not name are left behind — the `Observation` type
+has nowhere to put them.
+
+Ground labels live in `world/truth.ts` (`collectTruth`: scam event ids from
+the stage journal, campaign summaries, compromised/operator/shell accounts),
+served only by the gated truth route. The projection module must never
+import it (asserted by test, including a ban on the substring itself).
+
+Payment and order refs changed from handle-derived to id-derived
+(`fb0001.pay.example`): handle-derived indicator values in the public feed
+are handle leaks, which the canary requirement exposes. Values stay
+obviously synthetic, correlate with actorRefs, and no existing test changed
+shape. Handles now never leave the world in any form.
+
+One account carries the fixed tripwire handle `canary.sentinel`
+(`canarysentinel` slug); no syllable pool can generate either form, so it is
+unique by construction. The integrity gate scans every served page for four
+leak families and counts observations with hits; all four violation counters
+must stay zero forever.
+
+## Changed in W6 (and why)
+
+- New `src/world/observations.ts`: pure projection + seq-cursor paging.
+- New `src/world/integrity.ts`: metering gate scanning every served page.
+- New `src/world/truth.ts`: operator-only read model (journal + roles).
+- New `src/operatorAuth.ts`: `x-operator-key` middleware (fixture key).
+- All routes except `GET /api/world/observations` now require the operator
+  header — including the pre-existing ones. The console sends the key.
+- New routes: `POST /api/world/control` (advance minutes, finally unblocking
+  the server from boot tick), event detail, campaign detail, integrity,
+  truth, observations. The raw `GET /api/world/events` feed stays as a
+  gated 11th debug route (W3 acceptance requires it).
+- `WorldState` gained `truthLog` + `integrity`; stage emits are journaled.
+- Indicator values id-derived (see above); canary account wired.
+- `population.ts` (canary only), `graph.ts`, `contract.ts` otherwise
+  untouched.
 
 ## Changed in W5 (and why)
 
@@ -181,9 +237,9 @@ npm run check
 - New `GET /api/world/events` with `?limit=`. Required by W3 acceptance.
 - `population.ts`, `graph.ts`, `contract.ts` untouched.
 
-## Left out (W5)
+## Left out (W6)
 
-- Observation feed (W6), console views (W7).
+- Console views (W7).
 - Taken-over accounts keep benign behavior; attacker use of them is cut.
 - No advance endpoint yet (`advanceMinutes` exists; no HTTP route), so the
   running server sits at boot tick +180 with early-stage campaigns.

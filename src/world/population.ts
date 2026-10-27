@@ -43,6 +43,12 @@ export const INTERESTS: string[] = [
   'light-keeping'
 ];
 
+// Tripwire handle: no syllable pool can generate these tokens, so the marker
+// is unique by construction. If either form ever reaches the public feed,
+// the integrity gate has failed. See the W6 notes in the README.
+export const CANARY_HANDLE = 'canary.sentinel';
+export const CANARY_SLUG = 'canarysentinel';
+
 const SURFACES: Surface[] = ['facebook', 'whatsapp', 'messenger'];
 
 const PREFIX: Record<Surface, string> = {
@@ -231,6 +237,8 @@ export function generatePopulation(seed: number): WorldAccount[] {
   for (const i of scam) {
     accounts[i].role = ops.has(i) ? 'operator' : 'shell';
   }
+
+  accounts[0].handle = CANARY_HANDLE;
 
   return accounts;
 }

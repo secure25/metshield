@@ -13,7 +13,8 @@ export default function App(): React.JSX.Element {
   const [error, setError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
-    fetch('/api/world/state')
+    // Fixture key (see server operatorAuth): state is an operator route.
+    fetch('/api/world/state', { headers: { 'x-operator-key': 'metshield-local-operator' } })
       .then((res) => res.json() as Promise<Clock>)
       .then(setClock)
       .catch((err: unknown) => {

@@ -29,7 +29,15 @@ export function createWorldState(seed: number = DEFAULT_SEED): WorldState {
     operations,
     campaigns: spawnCampaigns(seed, accounts, graph, operations),
     journeys: [],
-    recoveries: []
+    recoveries: [],
+    truthLog: [],
+    integrity: {
+      observationsSent: 0,
+      truthLabelsSentToDetector: 0,
+      rawTextInObservations: 0,
+      campaignMarkersInObservations: 0,
+      canaryLeaks: 0
+    }
   };
   advanceMinutes(state, BOOT_MINUTES);
   return state;

@@ -203,7 +203,7 @@ export function stepMinute(state: WorldState): void {
   const idsBySurface: Record<Surface, string[]> = { facebook: [], whatsapp: [], messenger: [] };
   for (const a of state.accounts) idsBySurface[a.surface].push(a.id);
 
-  function ev(type: EventType, surface: Surface, actorId: string, opts: EvOpts): void {
+  function ev(type: EventType, surface: Surface, actorId: string, opts: EvOpts): string {
     state.seq += 1;
     const e: WorldEvent = {
       id: `EV-${String(state.seq).padStart(6, '0')}`,
@@ -220,6 +220,7 @@ export function stepMinute(state: WorldState): void {
     if (opts.groupId !== undefined) e.groupId = opts.groupId;
     if (opts.payload !== undefined) e.payload = { reason: opts.payload.reason };
     state.events.push(e);
+    return e.id;
   }
 
   function varsFor(actor: WorldAccount): Record<string, string> {
@@ -316,7 +317,7 @@ export function stepMinute(state: WorldState): void {
       const interest = pick(rng, actor.persona.interests);
       const product = `${capitalize(interest)} ${pick(rng, PRODUCTS)}`;
       const price = String(nextInt(rng, 5, 200));
-      const handle = `${slug(actor.handle)}.pay.example`;
+      const handle = `${slug(actor.id)}.pay.example`;
       let text = fill(pick(rng, OFFERS), { ...varsFor(actor), Product: product, product: product.toLowerCase(), price, handle });
       const indicators: Indicator[] = [{ kind: 'payment_handle', value: handle }];
       const claimCodes = [CLAIM_OFFER];
@@ -395,7 +396,7 @@ export function stepMinute(state: WorldState): void {
     if (!pageAcct) return;
     ev('payment_attempted', actor.surface, actor.id, {
       targetId: page.id,
-      indicators: [{ kind: 'payment_handle', value: `${slug(pageAcct.handle)}.pay.example` }],
+      indicators: [{ kind: 'payment_handle', value: `${slug(pageAcct.id)}.pay.example` }],
       claimCodes: [CLAIM_OFFER],
       surfaceText: `Paid ${nextInt(rng, 5, 200)} kivi to ${pageAcct.displayName}.`
     });

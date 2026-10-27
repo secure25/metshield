@@ -22,7 +22,7 @@ export interface StageEmitOpts {
   payload?: { reason: string };
 }
 
-export type StageEmit = (type: EventType, surface: Surface, actorId: string, opts: StageEmitOpts) => void;
+export type StageEmit = (type: EventType, surface: Surface, actorId: string, opts: StageEmitOpts) => string;
 
 export const TEMPLATE_KEYS: TemplateKey[] = [
   'investment-funnel',
@@ -373,9 +373,8 @@ function victimReply(ctx: RunCtx, victimId: string, operatorId: string, surface:
   ctx.state.pending.push({ to: operatorId, from: victimId, surface, since: ctx.tick });
 }
 
-function opHandle(ctx: RunCtx, actorId: string): string {
-  const actor = ctx.byId.get(actorId);
-  return `${slug(actor?.handle ?? 'shop')}.pay.example`;
+function opHandle(actorId: string): string {
+  return `${slug(actorId)}.pay.example`;
 }
 
 function lureSurfaceOf(c: Campaign): Surface {
@@ -406,7 +405,7 @@ function runStage(ctx: RunCtx, c: Campaign): void {
       Interest: capitalize(interest),
       city: victim.persona.city.name,
       link: spec.linkHost ? `${spec.linkHost}/${nextInt(ctx.rng, 100, 999)}` : '',
-      handle: opHandle(ctx, c.currentActorId),
+      handle: opHandle(c.currentActorId),
       amount: c.amount !== undefined ? String(c.amount) : '',
       Product: `${capitalize(interest)} ${pick(ctx.rng, PRODUCT_SUFFIX)}`
     };
@@ -513,7 +512,7 @@ function runStage(ctx: RunCtx, c: Campaign): void {
     }
     const vars = varsFor(victim);
     if (spec.kind === 'payment') {
-      const handle = opHandle(ctx, c.currentActorId);
+      const handle = opHandle(c.currentActorId);
       ctx.emit('payment_request_shown', surface, victim.id, {
         targetId: c.currentActorId,
         indicators: [{ kind: 'payment_handle', value: handle }],
@@ -573,7 +572,7 @@ function runStage(ctx: RunCtx, c: Campaign): void {
     if (spec.kind === 'payment') {
       ctx.emit('payment_attempted', surface, victim.id, {
         targetId: c.currentActorId,
-        indicators: [{ kind: 'payment_handle', value: opHandle(ctx, c.currentActorId) }],
+        indicators: [{ kind: 'payment_handle', value: opHandle(c.currentActorId) }],
         claimCodes: [...spec.requestClaims],
         surfaceText: `Paid ${c.amount ?? 0} kivi.`
       });
@@ -603,7 +602,12 @@ export function runCampaigns(state: WorldState, tick: number, rng: () => number,
   if (state.campaigns.length === 0) return;
   const byId = new Map(state.accounts.map((a) => [a.id, a]));
   const opMembers = new Map(state.operations.map((o) => [o.id, o.memberIds]));
-  const ctx: RunCtx = { state, tick, rng, emit, byId, opMembers };
+  const recording: StageEmit = (type, surface, actorId, opts) => {
+    const id = emit(type, surface, actorId, opts);
+    state.truthLog.push(id);
+    return id;
+  };
+  const ctx: RunCtx = { state, tick, rng, emit: recording, byId, opMembers };
   for (const c of state.campaigns) {
     if (c.outcome != null || c.nextAt == null || tick < c.nextAt) continue;
     runStage(ctx, c);

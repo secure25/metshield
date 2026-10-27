@@ -56,7 +56,7 @@ function runOrder(state: WorldState, tick: number, rng: () => number, emit: Stag
   if (!pair) return;
   const [page, buyer] = pair;
   const interest = pick(rng, buyer.persona.interests);
-  const url = `${slug(page.handle)}.example/order/${nextInt(rng, 100, 999)}`;
+  const url = `${slug(page.id)}.example/order/${nextInt(rng, 100, 999)}`;
   const price = nextInt(rng, 10, 120);
   emit('message_sent', page.surface, page.id, {
     targetId: buyer.id,
@@ -71,7 +71,7 @@ function runOrder(state: WorldState, tick: number, rng: () => number, emit: Stag
   });
   emit('payment_request_shown', page.surface, buyer.id, {
     targetId: page.id,
-    indicators: [{ kind: 'payment_handle', value: `${slug(page.handle)}.pay.example` }],
+    indicators: [{ kind: 'payment_handle', value: `${slug(page.id)}.pay.example` }],
     claimCodes: ['delivery'],
     surfaceText: `Payment request from ${page.displayName}: ${price} kivi.`
   });
@@ -105,13 +105,13 @@ function runFriendPay(state: WorldState, tick: number, rng: () => number, emit: 
   const price = nextInt(rng, 5, 60);
   emit('payment_request_shown', a.surface, b.id, {
     targetId: a.id,
-    indicators: [{ kind: 'payment_handle', value: `${slug(a.handle)}.pay.example` }],
+    indicators: [{ kind: 'payment_handle', value: `${slug(a.id)}.pay.example` }],
     claimCodes: ['split-bill'],
     surfaceText: `Your share of dinner: ${price} kivi.`
   });
   emit('payment_attempted', a.surface, b.id, {
     targetId: a.id,
-    indicators: [{ kind: 'payment_handle', value: `${slug(a.handle)}.pay.example` }],
+    indicators: [{ kind: 'payment_handle', value: `${slug(a.id)}.pay.example` }],
     claimCodes: ['split-bill'],
     surfaceText: `Paid ${price} kivi to ${a.displayName}.`
   });

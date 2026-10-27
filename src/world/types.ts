@@ -116,6 +116,14 @@ export interface PendingRecovery {
   atMinute: number;
 }
 
+export interface Integrity {
+  observationsSent: number;
+  truthLabelsSentToDetector: number;
+  rawTextInObservations: number;
+  campaignMarkersInObservations: number;
+  canaryLeaks: number;
+}
+
 export type TemplateKey =
   | 'investment-funnel'
   | 'advance-fee-prize'
@@ -185,6 +193,8 @@ export interface WorldState {
   campaigns: Campaign[];
   journeys: Journey[];
   recoveries: PendingRecovery[];
+  truthLog: string[];
+  integrity: Integrity;
 }
 
 export interface WorldSummary {
