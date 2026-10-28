@@ -50,7 +50,7 @@ function collectAll(events: WorldEvent[]): Observation[] {
   return out;
 }
 
-describe('feed W6', () => {
+describe('feed', () => {
   it('projects clean observations: no truth keys, synthetic world records, closed unions', () => {
     const state = createWorldState(7);
     const observations = collectAll(state.events);

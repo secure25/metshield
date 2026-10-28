@@ -4,7 +4,7 @@ import { createPersona } from '../src/world/population.js';
 
 const SEEDS_20 = Array.from({ length: 20 }, (_, i) => i + 1);
 
-describe('population W1', () => {
+describe('population', () => {
   it('generates 480 accounts with per-surface counts summing to 480', () => {
     const state = createWorldState(20261026);
     expect(state.accounts).toHaveLength(480);
@@ -89,5 +89,43 @@ describe('population W1', () => {
     const shells = state.accounts.filter((a) => a.role === 'shell').length;
     expect(summary.accounts.operators).toBe(ops);
     expect(summary.accounts.shells).toBe(shells);
+  });
+
+  it('holds at least 120 multi-surface persons over 5 seeds', () => {
+    for (const seed of [1, 2, 3, 4, 5]) {
+      const state = createWorldState(seed);
+      const surfacesByPerson = new Map<string, Set<string>>();
+      for (const a of state.accounts) {
+        let set = surfacesByPerson.get(a.personId);
+        if (!set) {
+          set = new Set();
+          surfacesByPerson.set(a.personId, set);
+        }
+        set.add(a.surface);
+      }
+      let multi = 0;
+      for (const set of surfacesByPerson.values()) {
+        if (set.size > 1) multi++;
+      }
+      expect(multi, `seed ${seed}`).toBeGreaterThanOrEqual(120);
+    }
+  });
+
+  it('keeps role distribution in tolerance over 5 seeds', () => {
+    for (const seed of [1, 2, 3, 4, 5]) {
+      const state = createWorldState(seed);
+      const total = state.accounts.length;
+      const roleCount = (role: string): number => state.accounts.filter((a) => a.role === role).length;
+      const shells = roleCount('shell');
+      const operators = roleCount('operator');
+      const legit = roleCount('legit');
+      const taken = roleCount('taken_over');
+      expect(shells, `seed ${seed} shells`).toBe(40);
+      expect(operators, `seed ${seed} operators`).toBe(8);
+      expect(legit + taken, `seed ${seed} legit+recovered pool`).toBe(total - 48);
+      expect(Math.abs(shells / total - 40 / 480)).toBeLessThanOrEqual(0.01);
+      expect(Math.abs(operators / total - 8 / 480)).toBeLessThanOrEqual(0.01);
+      expect(Math.abs((legit + taken) / total - 432 / 480)).toBeLessThanOrEqual(0.01);
+    }
   });
 });

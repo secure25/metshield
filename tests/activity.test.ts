@@ -21,7 +21,7 @@ const TYPES = new Set([
   'warning_shown'
 ]);
 
-describe('activity W3', () => {
+describe('activity', () => {
   it('produces roughly 900-1300 events per simulated hour', () => {
     const rates: number[] = [];
     for (const seed of [1, 2, 3, 4, 5]) {
@@ -39,7 +39,7 @@ describe('activity W3', () => {
   });
 
   it('sends messages over mutual edges with replies on both ends', () => {
-    // W4 correction: the old expectation (every message has a mutual edge) is wrong
+    // Correction: the old expectation (every message has a mutual edge) is wrong
     // because cold first contact is a designed phenomenon — cross-surface campaign
     // hops message victims where no edge can be assumed. Such conversations carry
     // the unsolicited_contact indicator from their first message, so the corrected

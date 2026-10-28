@@ -45,7 +45,7 @@ export const INTERESTS: string[] = [
 
 // Tripwire handle: no syllable pool can generate these tokens, so the marker
 // is unique by construction. If either form ever reaches the public feed,
-// the integrity gate has failed. See the W6 notes in the README.
+// the integrity gate has failed.
 export const CANARY_HANDLE = 'canary.sentinel';
 export const CANARY_SLUG = 'canarysentinel';
 
@@ -162,9 +162,12 @@ export function avatarFor(displayName: string, avatarSeed: number): { initials: 
 
 export function generatePopulation(seed: number): WorldAccount[] {
   const rng = createRng(seed);
-  const P = 338;
-  const N_THREE = 27;
-  const N_TWO = 88;
+  // Identity split: 216 single-surface, 96 two-surface, 24 three-surface
+  // persons. Totals exactly 480 accounts with exactly 120 multi-surface
+  // persons; the suite asserts that floor, so these stay fixed counts.
+  const P = 336;
+  const N_THREE = 24;
+  const N_TWO = 96;
 
   const personIds = Array.from({ length: P }, (_, i) => `P-${String(i + 1).padStart(4, '0')}`);
   const shuffled = [...personIds];

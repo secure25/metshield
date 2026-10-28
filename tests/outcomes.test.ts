@@ -3,7 +3,7 @@ import { createWorldState } from '../src/world/state.js';
 import { advanceMinutes, BOOT_MINUTES } from '../src/world/activity.js';
 import { WARNING_REASON } from '../src/world/campaigns.js';
 
-describe('outcomes W5', () => {
+describe('outcomes', () => {
   it(
     'high-gullibility quartile complies more often than the low quartile over 50 seeds',
     { timeout: 180000 },

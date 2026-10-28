@@ -13,7 +13,7 @@ function reachedRequestWithHop(c: Campaign): boolean {
   return hopStages.some((t) => t.surface !== c.path[0]);
 }
 
-describe('campaigns W4', () => {
+describe('campaigns', () => {
   it(
     'reaches request with a hop on at least 70% of 50 runs',
     { timeout: 120000 },
@@ -119,6 +119,38 @@ describe('campaigns W4', () => {
         w.events.filter((e) => e.type === 'payment_attempted' && e.claimCodes.some((c) => SCAM_CLAIMS.has(c)))
       );
       expect(scamCash.length, 'scam payment cashouts').toBeGreaterThan(0);
+    }
+  );
+
+  it(
+    'requires a preceding request before any scam payment',
+    { timeout: 120000 },
+    () => {
+      let checked = 0;
+      for (let seed = 1; seed <= 15; seed++) {
+        const state = createWorldState(seed);
+        advanceMinutes(state, 1780 - BOOT_MINUTES);
+        for (const c of state.campaigns) {
+          if (c.outcome !== 'cashed_out') continue;
+          const at = new Map(c.trail.map((t) => [t.stage, t.atMinute] as const));
+          if (c.trail.some((t) => t.stage === 'cashout')) {
+            expect(at.get('request'), `${c.id} paid without a request stage`).toBeDefined();
+            expect(at.get('request') as number).toBeLessThan(at.get('cashout') as number);
+          }
+        }
+        const shown = state.events.filter((e) => e.type === 'payment_request_shown');
+        const attempts = state.events.filter(
+          (e) => e.type === 'payment_attempted' && e.claimCodes.some((code) => SCAM_CLAIMS.has(code))
+        );
+        for (const attempt of attempts) {
+          checked++;
+          const prior = shown.some(
+            (s) => s.actorId === attempt.actorId && s.targetId === attempt.targetId && s.simMinute <= attempt.simMinute
+          );
+          expect(prior, `seed ${seed} ${attempt.id} has no preceding request`).toBe(true);
+        }
+      }
+      expect(checked).toBeGreaterThan(0);
     }
   );
 });

@@ -5,7 +5,7 @@ import type { WorldAccount } from '../src/world/types.js';
 
 const SEEDS = [1, 2, 3, 4, 5];
 
-describe('graph W2', () => {
+describe('graph', () => {
   it('stores every contact edge once, mutual from both ends; close ties are a subset of contacts', () => {
     for (const seed of SEEDS) {
       const state = createWorldState(seed);

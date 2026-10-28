@@ -24,7 +24,7 @@ const FORBIDDEN_BRANDS = [
   'samsung'
 ];
 
-describe('creatives W7', () => {
+describe('creatives', () => {
   it('ships six 1024x1024 SVG creatives with a handle in the fixed corner region', () => {
     const files = fs.readdirSync(CREATIVES_DIR).filter((f) => f.endsWith('.svg')).sort();
     expect(files).toHaveLength(6);

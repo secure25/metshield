@@ -35,6 +35,18 @@ export const TEMPLATE_KEYS: TemplateKey[] = [
   'romance-investment'
 ];
 
+// Two templates never leave their home surface, so operation 0 always draws
+// from the other six: every world then seeds at least one cross-surface
+// campaign, which the watchdog relies on.
+const MULTI_TEMPLATE_KEYS: TemplateKey[] = [
+  'investment-funnel',
+  'advance-fee-prize',
+  'brand-support',
+  'marketplace-diversion',
+  'fake-delivery',
+  'romance-investment'
+];
+
 interface IndicatorSpec {
   kind: IndicatorKind;
   value: string;
@@ -292,7 +304,8 @@ export function spawnCampaigns(seed: number, accounts: WorldAccount[], graph: Wo
   const out: Campaign[] = [];
   operations.forEach((op, i) => {
     const rng = createRng(hashSeedString(`${seed}:campaign:${op.id}`));
-    const templateKey = TEMPLATE_KEYS[nextInt(rng, 0, TEMPLATE_KEYS.length)];
+    const pool = i === 0 ? MULTI_TEMPLATE_KEYS : TEMPLATE_KEYS;
+    const templateKey = pool[nextInt(rng, 0, pool.length)];
     const spec = TEMPLATES[templateKey];
     const target = pickTarget(rng, accounts, graph, new Set(op.memberIds), spec.path);
     if (!target) return;
