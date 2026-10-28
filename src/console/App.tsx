@@ -1,4 +1,11 @@
 import React from 'react';
+import WorldPage from './world/WorldPage';
+
+function seedFromLocation(): number {
+  const raw = new URLSearchParams(window.location.search).get('seed');
+  const n = raw === null || raw === '' ? NaN : Number.parseInt(raw, 10);
+  return Number.isFinite(n) ? n : 42;
+}
 
 interface Clock {
   seed: number;
@@ -9,6 +16,13 @@ interface Clock {
 }
 
 export default function App(): React.JSX.Element {
+  if (window.location.pathname === '/world' || window.location.pathname.startsWith('/world/')) {
+    return <WorldPage initialSeed={seedFromLocation()} />;
+  }
+  return <ClockView />;
+}
+
+function ClockView(): React.JSX.Element {
   const [clock, setClock] = React.useState<Clock | null>(null);
   const [error, setError] = React.useState<string | null>(null);
 

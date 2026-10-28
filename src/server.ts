@@ -42,6 +42,14 @@ function parseNonNegativeInt(value: unknown): number | null {
 
 getWorld(DEFAULT_SEED);
 
+// Operator page: rewrite to the app entry so the client router takes over.
+// Works in dev (Vite serves the transformed entry downstream) and in prod
+// (static middleware serves dist/index.html downstream).
+app.get('/world', (req, _res, next) => {
+  req.url = '/index.html';
+  next();
+});
+
 // Operator routes: everything except the public observations feed requires
 // the operator header. truth.ts is imported here for the gated truth route
 // only; the projection module cannot import it (asserted by test).
@@ -53,6 +61,11 @@ app.get('/api/world/state', requireOperator, (req, res) => {
 app.get('/api/world/accounts', requireOperator, (req, res) => {
   const seed = parseSeed(req.query.seed);
   const world = getWorld(seed);
+  // The console picks a list row to show in the inline drawer, and a row with
+  // no sibling accounts renders an empty linked-account section. Counting the
+  // person's other accounts here lets the client choose a row that has links.
+  const perPerson = new Map<string, number>();
+  for (const a of world.accounts) perPerson.set(a.personId, (perPerson.get(a.personId) ?? 0) + 1);
   res.json(
     world.accounts.map((a) => ({
       id: a.id,
@@ -60,7 +73,9 @@ app.get('/api/world/accounts', requireOperator, (req, res) => {
       displayName: a.displayName,
       surface: a.surface,
       archetype: a.persona.archetype,
-      role: a.role
+      role: a.role,
+      personId: a.personId,
+      linkedAccountCount: (perPerson.get(a.personId) ?? 1) - 1
     }))
   );
 });
@@ -88,7 +103,15 @@ app.get('/api/world/events/:id', requireOperator, (req, res) => {
 
 app.get('/api/world/campaigns', requireOperator, (req, res) => {
   const seed = parseSeed(req.query.seed);
-  res.json(getWorld(seed).campaigns);
+  const world = getWorld(seed);
+  // The console shows the target as a handle; the campaign itself only stores
+  // the person id, so resolve one of that person's accounts here.
+  res.json(
+    world.campaigns.map((c) => ({
+      ...c,
+      targetHandle: world.accounts.find((a) => a.personId === c.targetPersonId)?.handle ?? null
+    }))
+  );
 });
 
 app.get('/api/world/campaigns/:id', requireOperator, (req, res) => {
@@ -123,6 +146,26 @@ app.post('/api/world/control', requireOperator, (req, res) => {
   res.json({ seed, tick: world.tick, simulatedAt: world.simulatedAt, events: world.events.length });
 });
 
+// The account drawer shows the last few events for one account. Filtering
+// server-side keeps the response small: the console never needs a page of the
+// whole feed just to fill six rows.
+app.get('/api/world/accounts/:id/events', requireOperator, (req, res) => {
+  const seed = parseSeed(req.query.seed);
+  const world = getWorld(seed);
+  const id = req.params.id;
+  if (!world.accounts.some((a) => a.id === id)) {
+    res.status(404).json({ error: 'not found' });
+    return;
+  }
+  const limit = parseNonNegativeInt(req.query.limit) ?? 12;
+  const out: typeof world.events = [];
+  for (let i = world.events.length - 1; i >= 0 && out.length < limit; i--) {
+    const e = world.events[i];
+    if (e.actorId === id || e.targetId === id) out.push(e);
+  }
+  res.json(out.reverse());
+});
+
 app.get('/api/world/accounts/:id', requireOperator, (req, res) => {
   const seed = parseSeed(req.query.seed);
   const world = getWorld(seed);
@@ -137,7 +180,12 @@ app.get('/api/world/accounts/:id', requireOperator, (req, res) => {
     account,
     linkedAccountIds: linked.map((a) => a.id),
     linkedPersonIds: linked.map((a) => a.personId),
-    linkedAccounts: linked.map((a) => ({ id: a.id, surface: a.surface })),
+    linkedAccounts: linked.map((a) => ({
+      id: a.id,
+      surface: a.surface,
+      handle: a.handle,
+      displayName: a.displayName
+    })),
     bridge: world.graph.bridges[account.personId] ?? null
   });
 });

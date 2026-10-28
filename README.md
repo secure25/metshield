@@ -1,4 +1,4 @@
-# MetShield (W6) — synthetic fixture
+# MetShield (W7) — synthetic fixture
 
 MetShield is a synthetic scam-protection demo. Nothing here is a real Meta
 product, a real user, or real data. All accounts, handles, domains, and phone
@@ -20,7 +20,8 @@ numbers are invented in obviously synthetic form.
   population, graph, activity, campaigns (funnel rate, hop rules, template
   coverage, journeys, cashout/takeover), outcomes (compliance quartiles,
   recovery, warning shape, once-only), feed (projection, surfaceText
-  exclusion, canary, no-truth-import, auth, paging).
+  exclusion, canary, no-truth-import, auth, paging), creatives (size,
+  corner handle, brand scan).
 
 Population: 480 accounts across facebook, whatsapp, messenger; 338 persons
 (223×1, 88×2, 27×3 accounts); 48 scam-controlled (8 operator, 40 shell);
@@ -176,6 +177,35 @@ unique by construction. The integrity gate scans every served page for four
 leak families and counts observations with hits; all four violation counters
 must stay zero forever.
 
+## The operator page (W7)
+
+`/world` serves one dark, dense operator page (root keeps the clock view):
+a clock strip (simulated time, day, 1x/10x/60x/240x scale, pause, step,
+seed, reset), a virtualised 480-row accounts list with surface filter,
+an account drawer (bio, join date, followers, persona, linked accounts,
+last 12 events), campaigns with per-stage surface chips (hops get a
+distinct arrow), target handle, amount, and outcome badge, and a 200-event
+live feed with WARN chips. Truth SCAM tags hide behind the "operator view"
+toggle (default off); the integrity panel and recent warnings sit beside
+it. A few new feed rows pulse once (capped: a full refresh at high sim
+rates never strobes); no other animation (disabled entirely under
+`prefers-reduced-motion`). Polling ticks 1s: advance by scale minutes, then
+refresh state/campaigns/feed (accounts every 15th poll, truth/integrity
+only with operator view on).
+
+Six hand-authored SVG creatives live in `src/world/assets/creatives/`
+(not the phase's literal `metshield/world/` path, so fixture deletion
+removes them with everything else): 1024×1024 ad-like images, each with a
+distinct dotted payment handle baked into the same corner box (x620–1000,
+y920–1000) for mask/region work. No real brands, no external references.
+
+## Changed in W7 (and why)
+
+- New `src/console/world/` page (client, panels, drawer, feed, styles).
+- `App.tsx` branches on pathname; server rewrites `/world` to the entry
+  (certain in dev and prod, no reliance on fallback middleware).
+- Six creatives + file test. `contract.ts` untouched.
+
 ## Changed in W6 (and why)
 
 - New `src/world/observations.ts`: pure projection + seq-cursor paging.
@@ -237,10 +267,13 @@ must stay zero forever.
 - New `GET /api/world/events` with `?limit=`. Required by W3 acceptance.
 - `population.ts`, `graph.ts`, `contract.ts` untouched.
 
-## Left out (W6)
+## Left out (W7)
 
-- Console views (W7).
 - Taken-over accounts keep benign behavior; attacker use of them is cut.
+- Creatives are files only (no serving route, not shown in the console).
+- Reset applies the seed box and refetches; same-seed in-memory history is
+  not rebuilt (no server-side world eviction yet).
+- Root `/` keeps the minimal clock view alongside `/world`.
 - No advance endpoint yet (`advanceMinutes` exists; no HTTP route), so the
   running server sits at boot tick +180 with early-stage campaigns.
 - No operations listing route.
