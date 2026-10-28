@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <rect x="0" y="0" width="1024" height="1024" fill="#2c4a22"/>
+  <rect x="120" y="160" width="420" height="420" rx="36" fill="#3e6630"/>
+  <rect x="180" y="220" width="300" height="120" rx="18" fill="#557f43"/>
+  <rect x="180" y="370" width="300" height="150" rx="18" fill="#243d1c"/>
+  <circle cx="820" cy="700" r="150" fill="#557f43"/>
+  <text x="80" y="720" font-family="sans-serif" font-size="68" font-weight="bold" fill="#ffffff">Built for</text>
+  <text x="80" y="805" font-family="sans-serif" font-size="68" font-weight="bold" fill="#ffffff">what&apos;s next.</text>
+  <rect x="620" y="920" width="380" height="80" rx="8" fill="#0b1220"/>
+  <text x="640" y="970" font-family="monospace" font-size="40" fill="#ffffff">orbit.gear.shop</text>
+</svg>

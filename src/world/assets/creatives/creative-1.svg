@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <rect x="0" y="0" width="1024" height="1024" fill="#0e4d5e"/>
+  <circle cx="800" cy="220" r="120" fill="#e8c33c"/>
+  <rect x="0" y="640" width="1024" height="384" fill="#0a3846"/>
+  <ellipse cx="220" cy="760" rx="180" ry="40" fill="#14606f"/>
+  <ellipse cx="640" cy="840" rx="220" ry="44" fill="#14606f"/>
+  <text x="80" y="240" font-family="sans-serif" font-size="72" font-weight="bold" fill="#ffffff">Your next</text>
+  <text x="80" y="330" font-family="sans-serif" font-size="72" font-weight="bold" fill="#ffffff">adventure is</text>
+  <text x="80" y="420" font-family="sans-serif" font-size="72" font-weight="bold" fill="#e8c33c">closer than</text>
+  <text x="80" y="510" font-family="sans-serif" font-size="72" font-weight="bold" fill="#e8c33c">you think.</text>
+  <rect x="620" y="920" width="380" height="80" rx="8" fill="#0b1220"/>
+  <text x="640" y="970" font-family="monospace" font-size="40" fill="#ffffff">pay.bright.cart</text>
+</svg>

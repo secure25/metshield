@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <rect x="0" y="0" width="1024" height="1024" fill="#dfe8dd"/>
+  <circle cx="512" cy="420" r="230" fill="#f2f6ef"/>
+  <ellipse cx="512" cy="430" rx="90" ry="130" fill="#7ba05b"/>
+  <ellipse cx="400" cy="360" rx="34" ry="90" fill="#7ba05b"/>
+  <ellipse cx="624" cy="360" rx="34" ry="90" fill="#7ba05b"/>
+  <text x="80" y="740" font-family="sans-serif" font-size="62" font-weight="bold" fill="#2c4a22">Stronger,</text>
+  <text x="80" y="815" font-family="sans-serif" font-size="62" font-weight="bold" fill="#2c4a22">healthier, happier.</text>
+  <rect x="620" y="920" width="380" height="80" rx="8" fill="#0b1220"/>
+  <text x="640" y="970" font-family="monospace" font-size="40" fill="#ffffff">fit.plus.life</text>
+</svg>
