@@ -27,7 +27,9 @@ export type Indicator =
 
 export interface Observation {
   id: string;
-  externalRef: string;
+  // Verbatim upstream id, when a source needs one echoed back. Optional:
+  // public and submission sources may have nothing to echo.
+  externalRef?: string;
   source: ObservationSource;
   observedAt: string;
   surface: Surface;
@@ -37,6 +39,9 @@ export interface Observation {
   threadRef: string | null;
   indicators: Indicator[];
   claimCodes: string[];
-  consent: 'none';
+  consent: 'none' | 'user_submitted' | 'public_source';
   synthetic: boolean;
+  // Conversation text can never be stored: assigning this field is a
+  // compile error. See AGENTS.md rule 2.
+  raw?: never;
 }
