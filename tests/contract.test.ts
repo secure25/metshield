@@ -23,7 +23,7 @@ const ALLOWED = [
 const FORBIDDEN = ['truth', 'campaignId', 'label', 'score', 'raw'];
 
 describe('contract', () => {
-  it('Observation has no forbidden keys', () => {
+  it('Observation has no forbidden data keys', () => {
     const sample: Observation = {
       id: 'obs-001',
       externalRef: 'world-001',
@@ -49,7 +49,12 @@ describe('contract', () => {
       '../src/contract.ts'
     );
     const src = fs.readFileSync(contractPath, 'utf8');
+    // The one exception is required, not forbidden: `raw?: never` makes
+    // storing conversation text a compile error. Enforce its exact presence,
+    // then assert no other forbidden-shaped field remains.
+    expect(src).toContain('raw?: never;');
+    const scrubbed = src.replace(/raw\?: never;/g, '');
     const fieldPattern = new RegExp(`\\b(${FORBIDDEN.join('|')})\\s*[:?]`);
-    expect(src).not.toMatch(fieldPattern);
+    expect(scrubbed).not.toMatch(fieldPattern);
   });
 });
