@@ -29,10 +29,10 @@ npm test        # the suite: determinism, population, graph, campaigns,
 npx tsc --noEmit
 ```
 
-Routes: `state`, `accounts`, `accounts/:id`, `events`, `events/:id`,
-`campaigns`, `campaigns/:id`, `integrity`, `truth`, `observations`
-(`?cursor=N&limit=M`), and `POST control { minutes }` to advance time.
-`?seed=` works on all world GET routes.
+Routes: `state`, `accounts`, `accounts/:id`, `accounts/:id/events`,
+`events`, `events/:id`, `campaigns`, `campaigns/:id`, `integrity`, `truth`,
+`observations` (`?cursor=N&limit=M`), and `POST control { minutes }` to
+advance time. `?seed=` works on all world GET routes.
 
 ## Seed contract
 
