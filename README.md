@@ -46,3 +46,8 @@ after a restart.
 
 All operator pages and world routes except the public observations feed
 require the `x-operator-key` header.
+
+## Checkpoint C clip
+
+Checkpoint C (5:40–6:00 of the build day) was recorded on 2026-10-28 as
+`clip-c-42.mp4`, against seed `42` at commit `06c4d0a`.
