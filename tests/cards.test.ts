@@ -313,6 +313,7 @@ describe('buildCard', () => {
       surfaces: ['facebook', 'messenger', 'whatsapp'],
       observationIds: ['obs-fb-1', 'obs-fb-2', 'obs-m-1', 'obs-w-1'],
       familyCount: 2,
+      perSurfaceCounts: { facebook: 2, messenger: 1, whatsapp: 1 },
       tierInputs: {
         crossSurfacePairs: [
           ['facebook', 'messenger'],
@@ -373,6 +374,7 @@ describe('buildCard', () => {
         emitProposal({
           tier: 'confirmed',
           headline: 'This link is on a public blocklist.',
+          body: "This domain is listed in example-feed's reported-scam feed, published 5 days ago. That listing is the whole of our evidence — we have not seen it in a conversation or in an ad, and a listing is a claim about the domain, not proof about every use of it.",
           citations: ['IND-000001', 'IND-000002']
         })
       )
@@ -431,10 +433,12 @@ describe('buildCard', () => {
       cardSurface: 'messenger',
       runDir: dir,
       nowMs: NOW,
-      propose: stubPropose(overclaim)
+      propose: stubPropose(overclaim),
+      validate: (candidate) => ({ card: candidate, dropped: [], finalTier: candidate.tier, demotions: [] })
     });
-    // P4 resolves evidence; judging the prose is the validator's job (P5), so
-    // the over-claimed copy passes through verbatim while the unknown id does not.
+    // The validator is stubbed to isolate buildCard: the over-claimed copy
+    // passes through verbatim while the unknown id does not. The next test
+    // proves the real default validator refuses this same proposal.
     expect(card).not.toBeNull();
     const emitted = card as Card;
     expect(emitted.citations.map((c) => c.indicatorId)).toEqual(['IND-000001', 'IND-000002']);
@@ -442,6 +446,28 @@ describe('buildCard', () => {
     expect(emitted.provenance.dropped).toEqual([
       { rule: 'V1', text: 'IND-999999', reason: 'citation_unknown_indicator' }
     ]);
+  });
+
+  it('refuses an over-claiming model reply through the default validator', async () => {
+    const { cluster, indicators, observations } = contextFixtures();
+    const dir = makeRunDir();
+    const card = await buildCard(cluster, {
+      indicators,
+      observations,
+      cardSurface: 'messenger',
+      runDir: dir,
+      nowMs: NOW,
+      propose: stubPropose(
+        emitProposal({
+          tier: 'confirmed',
+          headline: 'This account is a scam operation.',
+          body: 'You lost $500 to this fraudster. Pay nothing more.',
+          citations: ['IND-000001', 'IND-000002', 'IND-999999']
+        })
+      )
+    });
+    expect(card).toBeNull();
+    expect(readCards(dir)[0]).toMatchObject({ declined: true, reason: 'validator_rejected' });
   });
 
   it('writes a declined record and returns nothing when the model declines', async () => {
@@ -606,10 +632,11 @@ describe('buildCard', () => {
       cardSurface: 'messenger',
       runDir: path.join(root, 'run-1'),
       nowMs: NOW,
-      propose: stubPropose(emitProposal({ citations: found.indicatorIds }))
+      propose: stubPropose(emitProposal({ citations: found.indicatorIds })),
+      validate: (candidate) => ({ card: candidate, dropped: [], finalTier: candidate.tier, demotions: [] })
     });
     // One shared indicator resolves to one citation; the two-citation floor is
-    // the validator's V3 in P5, not the builder's.
+    // the validator's V3, so this lookup test stubs the validator.
     expect(card?.citations).toHaveLength(1);
     expect(card?.provenance.evidenceBasis).toBe('observed');
   });

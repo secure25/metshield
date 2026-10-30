@@ -7,16 +7,17 @@ import type { CompletionResult } from './models/client.js';
 import { MUSE_DEFAULT_MODEL, proposeCard } from './models/muse.js';
 import type { Proposal } from './models/muse.js';
 import { CARD_PROMPT_VERSION } from './models/prompts/card.v1.js';
+import { validateCard } from './validate.js';
 
 // Card generation (P4): resolve the model's bare indicator ids against cluster
 // evidence (§5.3), build the candidate from the resolved citations only, attach
 // provenance, and hand the result to the validator.
 //
-// P5 owns validate.ts. Until it lands, the validator is an injected hook: pass
-// `validate` in BuildCardDeps to enforce real rules; the default is a
-// passthrough returning the candidate unchanged. The ValidateFn signature here
-// is the contract P5's validateCard must satisfy: it returns additional drops
-// only, and buildCard concatenates them after the resolver's own V1/V2 drops.
+// The validator (src/validate.ts) is the default `validate` hook; pass
+// `validate` in BuildCardDeps only to stub it in tests. The ValidateFn
+// signature is the contract validateCard satisfies: it returns additional
+// drops only, and buildCard concatenates them after the resolver's own V1/V2
+// drops. (No import cycle: validate.ts imports cards.js for types only.)
 
 export type CardTier = 'context' | 'corroborated' | 'confirmed';
 export type CardSafeAction = 'do_not_pay' | 'do_not_share_code' | 'leave_and_report' | 'verify_in_app';
@@ -204,10 +205,6 @@ function nextCardId(): string {
   return `CARD-${String(cardSeq).padStart(6, '0')}`;
 }
 
-function passthroughValidator(candidate: Card, _cluster: Cluster, _nowMs: number): ValidationResult {
-  return { card: candidate, dropped: [], finalTier: candidate.tier, demotions: [] };
-}
-
 function writeDeclined(
   runDir: string,
   clusterId: string,
@@ -336,7 +333,7 @@ export async function buildCard(cluster: Cluster, deps: BuildCardDeps): Promise<
     expiresAt: new Date(nowMs + CARD_TTL_HOURS * 3600000).toISOString()
   };
 
-  const validate = deps.validate ?? passthroughValidator;
+  const validate = deps.validate ?? validateCard;
   const verdict = validate(candidate, cluster, nowMs);
   const dropped = [...resolverDropped, ...verdict.dropped];
   if (verdict.card === null) {
