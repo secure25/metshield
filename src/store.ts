@@ -8,7 +8,8 @@ import type { Cluster } from './correlate.js';
 
 // TTLs in days per family. Six come from the spec; page_ref, ad_ref and
 // file_hash take 30 days — they carry no expiry semantics of their own.
-const TTL_DAYS: Record<IndicatorFamily, number> = {
+// Exported so citation resolution can apply the same per-observation expiry.
+export const TTL_DAYS: Record<IndicatorFamily, number> = {
   domain: 30,
   payment_handle: 90,
   phone: 90,
@@ -162,6 +163,14 @@ export class Store {
 
   get(family: IndicatorFamily, canonical: string): StoredIndicator | undefined {
     return this.byKey.get(`${family}:${canonical}`);
+  }
+
+  getIndicatorById(id: string): StoredIndicator | undefined {
+    return this.byId.get(id);
+  }
+
+  getObservation(id: string): StoredObservation | undefined {
+    return this.observations.get(id);
   }
 
   getClusters(): Cluster[] {

@@ -3,6 +3,7 @@ import { completeJson } from './client.js';
 import type { CompletionResult } from './client.js';
 import type { Cluster } from '../correlate.js';
 import type { StoredIndicator } from '../store.js';
+import { CARD_SYSTEM_PROMPT } from './prompts/card.v1.js';
 
 export const PROPOSAL_SCHEMA = z.object({
   decision: z.enum(['emit', 'decline']),
@@ -24,18 +25,13 @@ export interface ProposeOptions {
   indicators: StoredIndicator[];
 }
 
-const DEFAULT_MODEL = 'muse-spark-1.3-contributor';
+export const MUSE_DEFAULT_MODEL = 'muse-spark-1.3-contributor';
 const DEFAULT_TEMPERATURE = 0.2;
 const DEFAULT_TIMEOUT_MS = 30000;
 const SCHEMA_NAME = 'card_proposal';
 
-const SYSTEM_PROMPT = [
-  'You draft scam-warning card proposals from correlation evidence.',
-  'Cite only indicator ids present in the cluster.',
-  'Prefer silence: decline unless the evidence spans surfaces.',
-  'Never assert guilt. Never invent amounts.',
-  'Reply with the proposal schema and nothing else.'
-].join(' ');
+// System prompt lives in prompts/card.v1.ts (versioned; the version is
+// recorded on every card). muse.ts only selects it, never edits copy.
 
 function serializeCluster(cluster: Cluster, indicators: StoredIndicator[]): string {
   const byId = new Map(indicators.map((stored) => [stored.id, stored]));
@@ -68,9 +64,9 @@ function serializeCluster(cluster: Cluster, indicators: StoredIndicator[]): stri
 
 export async function proposeCard(cluster: Cluster, opts: ProposeOptions): Promise<CompletionResult<Proposal>> {
   return completeJson<Proposal>({
-    model: opts.model ?? DEFAULT_MODEL,
+    model: opts.model ?? MUSE_DEFAULT_MODEL,
     messages: [
-      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'system', content: CARD_SYSTEM_PROMPT },
       { role: 'user', content: serializeCluster(cluster, opts.indicators) }
     ],
     schema: PROPOSAL_SCHEMA,
