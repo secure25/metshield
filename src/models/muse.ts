@@ -24,7 +24,7 @@ export interface ProposeOptions {
   indicators: StoredIndicator[];
 }
 
-const DEFAULT_MODEL = 'muse-spark-1.3';
+const DEFAULT_MODEL = 'muse-spark-1.3-contributor';
 const DEFAULT_TEMPERATURE = 0.2;
 const DEFAULT_TIMEOUT_MS = 30000;
 const SCHEMA_NAME = 'card_proposal';

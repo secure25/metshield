@@ -200,7 +200,7 @@ describe('muse', () => {
       temperature: number;
       response_format: { type: string; json_schema: { name: string } };
     };
-    expect(body.model).toBe('muse-spark-1.3');
+    expect(body.model).toBe('muse-spark-1.3-contributor');
     expect(body.temperature).toBe(0.2);
     expect(body.response_format.type).toBe('json_schema');
     expect(body.response_format.json_schema.name).toBe('card_proposal');
