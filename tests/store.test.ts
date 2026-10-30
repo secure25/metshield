@@ -48,7 +48,8 @@ describe('store', () => {
   it('records a valid observation and indexes its indicators', () => {
     const { store, dir } = makeStore();
     const result = store.record(baseObservation());
-    expect(result).toEqual({ accepted: true, joinedClusters: [] });
+    expect(result).toEqual({ accepted: true, joinedClusters: ['CLU-000001'] });
+    expect(store.getClusters()).toHaveLength(1);
     const stored = store.get('payment_handle', 'pay.me');
     expect(stored?.id).toBe('IND-000001');
     expect(stored?.observationIds).toEqual(['obs-1']);
@@ -89,8 +90,10 @@ describe('store', () => {
   it('matches re-recorded indicators without duplicating', () => {
     const { store, dir } = makeStore();
     const obs = baseObservation();
-    store.record(obs);
-    store.record(obs);
+    const first = store.record(obs);
+    const second = store.record(obs);
+    expect(first).toEqual({ accepted: true, joinedClusters: ['CLU-000001'] });
+    expect(second).toEqual({ accepted: true, joinedClusters: ['CLU-000001'] });
     expect(store.get('payment_handle', 'pay.me')?.observationIds).toEqual(['obs-1']);
     const lines = readLines(dir, 'indicators.jsonl') as Array<{ event: string; indicatorId: string }>;
     expect(lines.map((l) => l.event)).toEqual(['create', 'match']);

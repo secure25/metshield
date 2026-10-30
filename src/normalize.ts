@@ -21,6 +21,10 @@ export const CLAIM_CODES = [
 
 export type ClaimCode = (typeof CLAIM_CODES)[number];
 
+// The one claim code that marks infrastructure as externally confirmed.
+// Correlate folds it into tierInputs.hasConfirmedIndicator.
+export const CONFIRMED_CLAIM_CODE = 'public_blocklist';
+
 const WORLD_CODE_FOLD: Record<string, ClaimCode> = {
   urgent: 'urgency_phrase',
   prize: 'prize_claim',

@@ -3,6 +3,8 @@ import path from 'node:path';
 import type { IndicatorFamily, Observation } from './contract.js';
 import { normalizeClaimCode, normalizeIndicator, routeWorldIndicator } from './normalize.js';
 import type { ClaimCode, NormalizedIndicator } from './normalize.js';
+import { Correlator } from './correlate.js';
+import type { Cluster } from './correlate.js';
 
 // TTLs in days per family. Six come from the spec; page_ref, ad_ref and
 // file_hash take 30 days — they carry no expiry semantics of their own.
@@ -103,6 +105,7 @@ function isObservationShape(input: unknown): input is Observation {
 export class Store {
   private readonly dir: string;
   private readonly now: () => number;
+  private readonly correlator = new Correlator();
   private seq = 0;
   private readonly byKey = new Map<string, StoredIndicator>();
   private readonly byId = new Map<string, StoredIndicator>();
@@ -123,6 +126,7 @@ export class Store {
       const normalized = normalizeClaimCode(code);
       if (normalized !== null) codes.add(normalized);
     }
+    const indexed: Array<{ id: string; family: IndicatorFamily }> = [];
     for (const item of input.indicators) {
       const routed = routeWorldIndicator(item.kind, item.value);
       for (const code of routed.claimCodes) {
@@ -132,9 +136,17 @@ export class Store {
       for (const pair of routed.indicators) {
         const result = normalizeIndicator(pair);
         if ('rejected' in result) continue;
-        this.index(result, input.id, input.observedAt);
+        indexed.push({ id: this.index(result, input.id, input.observedAt), family: result.family });
       }
     }
+    const joined = this.correlator.ingest({
+      observationId: input.id,
+      surface: input.surface,
+      observedAt: input.observedAt,
+      synthetic: input.synthetic,
+      claimCodes: [...codes],
+      indicators: indexed
+    });
     this.observations.set(input.id, {
       observation: input,
       normalizedClaimCodes: [...codes],
@@ -145,12 +157,15 @@ export class Store {
       normalizedClaimCodes: [...codes],
       acceptedAt
     });
-    // P2 wires cluster joining; until then every record stands alone.
-    return { accepted: true, joinedClusters: [] };
+    return { accepted: true, joinedClusters: joined };
   }
 
   get(family: IndicatorFamily, canonical: string): StoredIndicator | undefined {
     return this.byKey.get(`${family}:${canonical}`);
+  }
+
+  getClusters(): Cluster[] {
+    return this.correlator.clusters();
   }
 
   sweepExpired(nowMs?: number): string[] {
@@ -176,7 +191,7 @@ export class Store {
     return expired;
   }
 
-  private index(indicator: NormalizedIndicator, observationId: string, observedAt: string): void {
+  private index(indicator: NormalizedIndicator, observationId: string, observedAt: string): string {
     const key = `${indicator.family}:${indicator.canonical}`;
     const existing = this.byKey.get(key);
     if (existing === undefined) {
@@ -200,7 +215,7 @@ export class Store {
         observationId,
         at: observedAt
       });
-      return;
+      return id;
     }
     if (!existing.observationIds.includes(observationId)) existing.observationIds.push(observationId);
     if (observedAt > existing.lastSeenAt) {
@@ -215,5 +230,6 @@ export class Store {
       observationId,
       at: observedAt
     });
+    return existing.id;
   }
 }
