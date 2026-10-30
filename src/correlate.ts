@@ -22,6 +22,7 @@ export interface Cluster {
   surfaces: ObservationSurface[];
   observationIds: string[];
   familyCount: number;
+  claimCodes: string[];
   firstSeenAt: string;
   lastSeenAt: string;
   perSurfaceCounts: Partial<Record<ObservationSurface, number>>;
@@ -34,6 +35,7 @@ interface MutableCluster {
   indicatorIds: Set<string>;
   families: Set<IndicatorFamily>;
   observationIds: Set<string>;
+  codes: Set<string>;
   surfaces: Set<ObservationSurface>;
   perSurfaceCounts: Map<ObservationSurface, number>;
   firstSeenAt: string;
@@ -92,6 +94,7 @@ function mergeInto(target: MutableCluster, donor: MutableCluster): void {
   for (const id of donor.indicatorIds) target.indicatorIds.add(id);
   for (const family of donor.families) target.families.add(family);
   for (const id of donor.observationIds) target.observationIds.add(id);
+  for (const code of donor.codes) target.codes.add(code);
   for (const surface of donor.surfaces) target.surfaces.add(surface);
   for (const [surface, count] of donor.perSurfaceCounts) {
     target.perSurfaceCounts.set(surface, (target.perSurfaceCounts.get(surface) ?? 0) + count);
@@ -121,6 +124,7 @@ function snapshot(m: MutableCluster): Cluster {
     surfaces,
     observationIds: [...m.observationIds].sort(),
     familyCount: m.families.size,
+    claimCodes: [...m.codes].sort(),
     firstSeenAt: m.firstSeenAt,
     lastSeenAt: m.lastSeenAt,
     perSurfaceCounts,
@@ -171,6 +175,7 @@ export class Correlator {
     survivor.observationIds.add(event.observationId);
     survivor.surfaces.add(event.surface);
     survivor.perSurfaceCounts.set(event.surface, (survivor.perSurfaceCounts.get(event.surface) ?? 0) + 1);
+    for (const code of event.claimCodes) survivor.codes.add(code);
     if (survivor.observationCount === 0) {
       survivor.firstSeenAt = event.observedAt;
       survivor.lastSeenAt = event.observedAt;
@@ -196,6 +201,7 @@ export class Correlator {
       indicatorIds: new Set(),
       families: new Set(),
       observationIds: new Set(),
+      codes: new Set(),
       surfaces: new Set(),
       perSurfaceCounts: new Map(),
       firstSeenAt: '',
