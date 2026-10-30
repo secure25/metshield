@@ -6,6 +6,7 @@
   "description": "MetShield synthetic scam-protection fixture (not a real Meta product)",
   "scripts": {
     "dev": "tsx src/server.ts",
+    "start": "tsx src/server.ts",
     "build": "tsc --noEmit && vite build",
     "test": "vitest run",
     "check": "tsc --noEmit"

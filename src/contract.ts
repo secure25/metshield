@@ -25,6 +25,22 @@ export type Indicator =
   | { kind: 'unsolicited_contact'; value: string }
   | { kind: 'prize_claim'; value: string };
 
+// Product-side vocabulary (P0). The world emits the three Surfaces and seven
+// narrative IndicatorKinds above; these cover what the product adds. The
+// world never uses them.
+export type ObservationSurface = Surface | 'public_feed' | 'user_submission';
+
+export type IndicatorFamily =
+  | 'domain'
+  | 'payment_handle'
+  | 'phone'
+  | 'qr_payload'
+  | 'brand_mark'
+  | 'page_ref'
+  | 'ad_ref'
+  | 'account_ref'
+  | 'file_hash';
+
 export interface Observation {
   id: string;
   // Verbatim upstream id, when a source needs one echoed back. Optional:
@@ -32,7 +48,7 @@ export interface Observation {
   externalRef?: string;
   source: ObservationSource;
   observedAt: string;
-  surface: Surface;
+  surface: ObservationSurface;
   eventKind: EventKind;
   actorRef: string;
   subjectRef: string | null;

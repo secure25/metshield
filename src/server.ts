@@ -7,6 +7,7 @@ import { sliceObservations } from './world/observations.js';
 import { scanAndCount } from './world/integrity.js';
 import { collectTruth } from './world/truth.js';
 import { requireOperator } from './operatorAuth.js';
+import { getHealth } from './health.js';
 import type { WorldState } from './world/types.js';
 
 const app = express();
@@ -40,7 +41,8 @@ function parseNonNegativeInt(value: unknown): number | null {
   return n;
 }
 
-getWorld(DEFAULT_SEED);
+// No eager boot: importing the app must stay side-effect free so tests can
+// import it without building a world. Every route builds lazily via getWorld.
 
 // Operator page: rewrite to the app entry so the client router takes over.
 // Works in dev (Vite serves the transformed entry downstream) and in prod
@@ -201,6 +203,12 @@ app.get('/api/world/observations', (req, res) => {
   res.json(page);
 });
 
+// Product API (MetShield proper). Model slots report null until their
+// transports land (P3/P9); the shape is stable from here on.
+app.get('/v1/health', (_req, res) => {
+  res.json(getHealth());
+});
+
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const isProd = process.env.NODE_ENV === 'production';
 
@@ -221,9 +229,16 @@ async function start(): Promise<void> {
   });
 }
 
-start().catch((err: unknown) => {
-  console.error(err);
-  process.exit(1);
-});
+// Only listen when executed directly: importing the app (tests, tooling)
+// must not bind a port. Matches any argv entry so tsx, node, and future
+// runners all boot; test workers never name this file.
+const SELF = fileURLToPath(import.meta.url);
+const invokedDirectly = process.argv.slice(1).some((arg) => path.resolve(arg) === SELF);
+if (invokedDirectly) {
+  start().catch((err: unknown) => {
+    console.error(err);
+    process.exit(1);
+  });
+}
 
 export default app;
