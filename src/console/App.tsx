@@ -1,5 +1,6 @@
 import React from 'react';
 import WorldPage from './world/WorldPage';
+import ShieldPage from './shield/ShieldPage';
 
 function seedFromLocation(): number {
   const raw = new URLSearchParams(window.location.search).get('seed');
@@ -18,6 +19,9 @@ interface Clock {
 export default function App(): React.JSX.Element {
   if (window.location.pathname === '/world' || window.location.pathname.startsWith('/world/')) {
     return <WorldPage initialSeed={seedFromLocation()} />;
+  }
+  if (window.location.pathname === '/console' || window.location.pathname.startsWith('/console/')) {
+    return <ShieldPage />;
   }
   return <ClockView />;
 }

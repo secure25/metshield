@@ -1,0 +1,339 @@
+/* MetShield operator console (P11). One file, light theme, system stack, one
+   accent. No animations: static bars and chips only. */
+
+.shield-page {
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  background: #f4f6fa;
+  color: #17202e;
+  min-height: 100vh;
+  margin: 0;
+  padding: 24px 32px 48px;
+}
+
+.shield-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 24px;
+  max-width: 1560px;
+  margin: 0 auto 24px;
+  flex-wrap: wrap;
+}
+
+.shield-header h1 {
+  font-size: 24px;
+  margin: 0 0 4px;
+}
+
+.shield-header-controls {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.shield-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+  max-width: 1560px;
+  margin: 0 auto;
+  align-items: start;
+}
+
+@media (max-width: 1000px) {
+  .shield-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.shield-panel {
+  background: #ffffff;
+  border: 1px solid #dfe3ea;
+  border-radius: 10px;
+  padding: 20px 22px;
+}
+
+.shield-panel h2 {
+  font-size: 16px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #4d586e;
+  margin: 0 0 16px;
+}
+
+.shield-panel h3 {
+  font-size: 19px;
+  margin: 12px 0 8px;
+}
+
+.shield-panel h4 {
+  font-size: 14px;
+  margin: 18px 0 8px;
+  color: #4d586e;
+}
+
+.shield-muted {
+  color: #4d586e;
+}
+
+.shield-mono {
+  font-family: ui-monospace, 'Cascadia Mono', Menlo, monospace;
+  font-size: 13px;
+}
+
+.shield-error {
+  color: #b3261e;
+  background: #fdecea;
+  border: 1px solid #f5c6c2;
+  border-radius: 6px;
+  padding: 8px 12px;
+}
+
+.shield-button {
+  font: inherit;
+  color: #0050c8;
+  background: #ffffff;
+  border: 1px solid #0050c8;
+  border-radius: 6px;
+  padding: 7px 14px;
+  cursor: pointer;
+}
+
+.shield-button:hover {
+  background: #eef4ff;
+}
+
+.shield-button:disabled {
+  color: #4d586e;
+  border-color: #9aa3b5;
+  background: #f0f2f5;
+  cursor: not-allowed;
+}
+
+.shield-button-active {
+  color: #ffffff;
+  background: #0050c8;
+}
+
+.shield-button-active:hover {
+  background: #0043a8;
+}
+
+button:focus-visible,
+a:focus-visible {
+  outline: 3px solid #0050c8;
+  outline-offset: 2px;
+}
+
+.shield-chip-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.shield-chip {
+  font-size: 12px;
+  background: #eef1f6;
+  color: #17202e;
+  border-radius: 999px;
+  padding: 2px 10px;
+  white-space: nowrap;
+}
+
+.shield-chip-synthetic {
+  background: #e6f0e6;
+  color: #1e4620;
+}
+
+.shield-tier {
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 4px;
+  padding: 2px 8px;
+}
+
+.shield-tier-context {
+  background: #e8eef7;
+  color: #1c3d6e;
+}
+
+.shield-tier-corroborated {
+  background: #fff3d6;
+  color: #6b4a00;
+}
+
+.shield-tier-confirmed {
+  background: #fdecea;
+  color: #8c1d18;
+}
+
+.shield-severity {
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 4px;
+  padding: 2px 8px;
+  background: #eef1f6;
+  color: #17202e;
+}
+
+.shield-severity-warning {
+  background: #8c1d18;
+  color: #ffffff;
+}
+
+.shield-severity-caution {
+  background: #6b4a00;
+  color: #ffffff;
+}
+
+.shield-cluster-list,
+.shield-card-list,
+.shield-cite-list,
+.shield-drop-list,
+.shield-silent-list {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+}
+
+.shield-cluster,
+.shield-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+  width: 100%;
+  font: inherit;
+  text-align: left;
+  background: #ffffff;
+  border: 1px solid #dfe3ea;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  color: inherit;
+}
+
+.shield-cluster:hover,
+.shield-card:hover {
+  border-color: #0050c8;
+}
+
+.shield-cluster-selected,
+.shield-card-selected {
+  border-color: #0050c8;
+  box-shadow: 0 0 0 1px #0050c8;
+}
+
+.shield-cluster-id,
+.shield-card-id {
+  font-weight: 700;
+}
+
+.shield-card {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.shield-tier-line {
+  font-weight: 600;
+}
+
+.shield-privacy {
+  background: #eef4ff;
+  border-left: 4px solid #0050c8;
+  padding: 10px 14px;
+  border-radius: 0 6px 6px 0;
+}
+
+.shield-cite {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  flex-wrap: wrap;
+  border-bottom: 1px solid #eef1f6;
+  padding: 8px 0;
+}
+
+.shield-cite-display {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.shield-drop {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  color: #4d586e;
+  border-bottom: 1px solid #eef1f6;
+  padding: 6px 0;
+}
+
+.shield-rule {
+  font-family: ui-monospace, 'Cascadia Mono', Menlo, monospace;
+  font-size: 12px;
+  font-weight: 700;
+  background: #eef1f6;
+  border-radius: 4px;
+  padding: 1px 7px;
+  white-space: nowrap;
+}
+
+.shield-counts {
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0 0 8px;
+}
+
+.shield-silent-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 4px 0;
+}
+
+.shield-silent-bar {
+  display: block;
+  height: 10px;
+  background: #eef1f6;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.shield-silent-bar > span {
+  display: block;
+  height: 100%;
+  background: #0050c8;
+}
+
+.shield-caption {
+  color: #4d586e;
+  font-style: italic;
+}
+
+.shield-preview {
+  max-width: 640px;
+}
+
+.shield-existing-warning {
+  background: #eef1f6;
+  border: 1px solid #dfe3ea;
+  border-radius: 8px 8px 0 0;
+  padding: 12px 16px;
+  color: #4d586e;
+  font-weight: 600;
+}
+
+.shield-payload {
+  border: 1px solid #dfe3ea;
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+  padding: 16px 18px;
+}
+
+.shield-safe-action {
+  font-weight: 600;
+}

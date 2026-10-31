@@ -28,6 +28,12 @@ export function createApp(pipeline: Pipeline): Express {
     next();
   });
 
+  // MetShield operator console (P11): same SPA rewrite as the world page.
+  app.get('/console', (req, _res, next) => {
+    req.url = '/index.html';
+    next();
+  });
+
   // Product API (MetShield proper). Model slots report null until their
   // transports land (P3/P9); the shape is stable from here on.
   app.get('/v1/health', (_req, res) => {
