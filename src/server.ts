@@ -92,10 +92,39 @@ export function createApp(pipeline: Pipeline): Express {
     })();
   });
 
-  // Minimal operator reads (P8 slice of P10): full list newest-first, and
-  // the counters. P10 adds clusters, card detail, and cost.
-  app.get('/v1/cards', (_req, res) => {
-    res.json({ cards: pipeline.getCards() });
+  // Operator reads (P10): clusters, a paged card list newest-first, card
+  // detail with the model's proposal, and the metered counters.
+  app.get('/v1/clusters', (_req, res) => {
+    res.json({ clusters: pipeline.getClusters() });
+  });
+
+  app.get('/v1/cards', (req, res) => {
+    const limitRaw = req.query.limit;
+    let limit = 50;
+    if (limitRaw !== undefined) {
+      const parsed = typeof limitRaw === 'string' ? Number(limitRaw) : NaN;
+      if (!Number.isInteger(parsed) || parsed < 1 || parsed > 200) {
+        res.status(400).json({ error: 'limit_invalid' });
+        return;
+      }
+      limit = parsed;
+    }
+    const cursorRaw = req.query.cursor;
+    const cursor = typeof cursorRaw === 'string' ? cursorRaw : undefined;
+    if (cursor !== undefined && pipeline.getCard(cursor) === undefined) {
+      res.status(404).json({ error: 'cursor_unknown' });
+      return;
+    }
+    res.json(pipeline.getCardsPage(limit, cursor));
+  });
+
+  app.get('/v1/cards/:id', (req, res) => {
+    const card = pipeline.getCard(req.params.id);
+    if (card === undefined) {
+      res.status(404).json({ error: 'card_not_found' });
+      return;
+    }
+    res.json({ card, proposal: pipeline.getProposal(card.id) ?? null });
   });
 
   app.get('/v1/metrics', (_req, res) => {

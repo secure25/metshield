@@ -258,7 +258,9 @@ export async function submitCreativeSubmission(
   // The observation is recorded either way (§8.4: both paths produce it);
   // only the reason differs, and a dead localizer should say so rather than
   // hide behind the ineligible-cluster fallback the file-hash-only evidence
-  // would otherwise produce.
+  // would otherwise produce. The pipeline's silentByReason keeps counting the
+  // fallback — the override is route-level, and the meter reports what the
+  // pipeline decided.
   const declineReason = sub.card === null && !located.ok ? `localization_failed:${located.code}` : sub.declineReason;
   return {
     card: sub.card,

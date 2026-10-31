@@ -190,6 +190,21 @@ export type ValidateFn = (candidate: Card, cluster: Cluster, nowMs: number) => V
 
 export type ProposeFn = (cluster: Cluster, indicators: StoredIndicator[]) => Promise<CompletionResult<Proposal>>;
 
+// One report per completed model call, fired on every post-proposal path —
+// emits, declines, invalid proposals, unresolvable citations, rejections.
+// Transport failures and ineligible clusters never reach it: no proposal, no
+// report. The pipeline feeds its meters from this; proposals.jsonl keeps the
+// run's model-call ledger beside cards.jsonl (which keeps its two shapes).
+export interface BuildReport {
+  proposal: Proposal;
+  inputTokens: number;
+  outputTokens: number;
+  ms: number;
+  demotions: string[];
+  finalTier: CardTier | null;
+  cardId: string | null;
+}
+
 export interface BuildCardDeps {
   indicators: StoredIndicator[];
   observations: StoredObservation[];
@@ -201,6 +216,7 @@ export interface BuildCardDeps {
   feedRecords?: ReadonlyMap<string, FeedAttribution>;
   propose?: ProposeFn;
   validate?: ValidateFn;
+  onBuild?: (report: BuildReport) => void;
 }
 
 let cardSeq = 0;
@@ -250,10 +266,32 @@ export async function buildCard(cluster: Cluster, deps: BuildCardDeps): Promise<
     return writeDeclined(deps.runDir, cluster.id, result.code, null, [], [], at);
   }
   const proposal = result.data;
+  const usage = result.usage;
+  const callMs = result.ms;
+  const reportBuild = (extra: { demotions: string[]; finalTier: CardTier | null; cardId: string | null }): void => {
+    appendJsonl(deps.runDir, 'proposals.jsonl', {
+      event: 'proposal',
+      cardId: extra.cardId,
+      clusterId: cluster.id,
+      proposal,
+      at
+    });
+    deps.onBuild?.({
+      proposal,
+      inputTokens: usage.inputTokens,
+      outputTokens: usage.outputTokens,
+      ms: callMs,
+      demotions: extra.demotions,
+      finalTier: extra.finalTier,
+      cardId: extra.cardId
+    });
+  };
   if (proposal.decision === 'decline') {
+    reportBuild({ demotions: [], finalTier: null, cardId: null });
     return writeDeclined(deps.runDir, cluster.id, proposal.declineReason ?? 'decline', null, [], [], at);
   }
   if (proposal.tier === null || proposal.headline === null || proposal.body === null || proposal.safeAction === null) {
+    reportBuild({ demotions: [], finalTier: null, cardId: null });
     return writeDeclined(deps.runDir, cluster.id, 'invalid_proposal', proposal.tier, [], [], at);
   }
   const tier = proposal.tier;
@@ -266,6 +304,7 @@ export async function buildCard(cluster: Cluster, deps: BuildCardDeps): Promise<
     observationsById
   });
   if (resolved.citations.length === 0) {
+    reportBuild({ demotions: [], finalTier: null, cardId: null });
     return writeDeclined(deps.runDir, cluster.id, 'no_resolvable_citations', tier, resolved.rejected, [], at);
   }
 
@@ -342,12 +381,14 @@ export async function buildCard(cluster: Cluster, deps: BuildCardDeps): Promise<
   const verdict = validate(candidate, cluster, nowMs);
   const dropped = [...resolverDropped, ...verdict.dropped];
   if (verdict.card === null) {
+    reportBuild({ demotions: verdict.demotions, finalTier: null, cardId: null });
     return writeDeclined(deps.runDir, cluster.id, 'validator_rejected', tier, resolved.rejected, dropped, at);
   }
   const finalCard: Card = {
     ...verdict.card,
     provenance: { ...verdict.card.provenance, dropped }
   };
+  reportBuild({ demotions: verdict.demotions, finalTier: finalCard.tier, cardId: finalCard.id });
   appendJsonl(deps.runDir, 'cards.jsonl', finalCard);
   return finalCard;
 }
