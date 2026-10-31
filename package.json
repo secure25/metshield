@@ -9,7 +9,9 @@
     "start": "tsx src/server.ts",
     "build": "tsc --noEmit && vite build",
     "test": "vitest run",
-    "check": "tsc --noEmit"
+    "check": "tsc --noEmit",
+    "demo:world": "tsx src/demo-world.ts",
+    "demo:public": "tsx src/demo-public.ts"
   },
   "dependencies": {
     "express": "^5.1.0",

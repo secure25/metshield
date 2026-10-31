@@ -221,6 +221,13 @@ export interface BuildCardDeps {
 
 let cardSeq = 0;
 
+// Run-scoped identity: card ids restart per scenario so two runs of one seed
+// produce byte-identical reports. The harness calls this; live servers run
+// one scenario per process and never need it.
+export function resetCardSequence(): void {
+  cardSeq = 0;
+}
+
 function nextCardId(): string {
   cardSeq += 1;
   return `CARD-${String(cardSeq).padStart(6, '0')}`;
