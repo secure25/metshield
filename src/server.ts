@@ -1,26 +1,78 @@
 import express from 'express';
+import type { Express } from 'express';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getHealth } from './health.js';
+import { Pipeline } from './pipeline.js';
+import type { ObservationSurface } from './contract.js';
 
-const app = express();
 const PORT: number = process.env.PORT ? Number(process.env.PORT) : 5173;
 
-app.use(express.json());
+function isProductSurface(value: unknown): value is ObservationSurface {
+  return value === 'facebook' || value === 'messenger' || value === 'whatsapp';
+}
 
-// Operator page: rewrite to the app entry so the client router takes over.
-// Works in dev (Vite serves the transformed entry downstream) and in prod
-// (static middleware serves dist/index.html downstream).
-app.get('/world', (req, _res, next) => {
-  req.url = '/index.html';
-  next();
-});
+// App factory: tests build isolated apps over fresh pipelines, while the
+// default export below serves the live one. Product routes only — world
+// routes register separately (and optionally) at boot.
+export function createApp(pipeline: Pipeline): Express {
+  const app = express();
+  app.use(express.json());
 
-// Product API (MetShield proper). Model slots report null until their
-// transports land (P3/P9); the shape is stable from here on.
-app.get('/v1/health', (_req, res) => {
-  res.json(getHealth());
+  // Operator page: rewrite to the app entry so the client router takes over.
+  // Works in dev (Vite serves the transformed entry downstream) and in prod
+  // (static middleware serves dist/index.html downstream).
+  app.get('/world', (req, _res, next) => {
+    req.url = '/index.html';
+    next();
+  });
+
+  // Product API (MetShield proper). Model slots report null until their
+  // transports land (P3/P9); the shape is stable from here on.
+  app.get('/v1/health', (_req, res) => {
+    res.json(getHealth());
+  });
+
+  // Minimal link submission (P8 slice of P9): value + render surface in, a
+  // card or a decline reason out. P9 adds creatives, SAM and actorRef tests.
+  app.post('/v1/submissions/link', (req, res) => {
+    void (async () => {
+      try {
+        const body = (req.body ?? {}) as { value?: unknown; surface?: unknown };
+        if (typeof body.value !== 'string' || body.value.trim().length === 0) {
+          res.status(400).json({ error: 'value_required' });
+          return;
+        }
+        if (!isProductSurface(body.surface)) {
+          res.status(400).json({ error: 'surface_invalid' });
+          return;
+        }
+        const result = await pipeline.submitLink(body.value, body.surface);
+        res.json({ card: result.card, declineReason: result.declineReason });
+      } catch {
+        res.status(500).json({ error: 'pipeline_error' });
+      }
+    })();
+  });
+
+  // Minimal operator reads (P8 slice of P10): full list newest-first, and
+  // the counters. P10 adds clusters, card detail, and cost.
+  app.get('/v1/cards', (_req, res) => {
+    res.json({ cards: pipeline.getCards() });
+  });
+
+  app.get('/v1/metrics', (_req, res) => {
+    res.json(pipeline.getMetrics());
+  });
+
+  return app;
+}
+
+const pipeline = new Pipeline({
+  root: process.env.METASHIELD_RUN_DIR ?? path.resolve('runs'),
+  runId: `live-${Date.now()}`
 });
+const app = createApp(pipeline);
 
 // Living World routes are optional at boot: the dynamic import below is the
 // only contact this file has with src/world. With the world absent the import

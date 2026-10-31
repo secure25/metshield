@@ -98,7 +98,23 @@ export function checkV7(candidate: Card): DroppedClaim | null {
 }
 
 export function checkV11(candidate: Card, nowMs: number): DroppedClaim | null {
-  if (candidate.provenance.evidenceBasis !== 'source_reported') return null;
+  if (candidate.provenance.evidenceBasis !== 'source_reported') {
+    // Mirror: blocklist copy on observed evidence. Template F asserts "we
+    // have not seen it in a conversation or in an ad" — on a card citing
+    // product observations that sentence is false, so the card goes silent
+    // rather than emitting a weaker half-F.
+    const headlineMatch = matchSentence(candidate.headline, 'headline');
+    if (headlineMatch !== null && headlineMatch.templateId === 'F') {
+      return { rule: 'V11', text: candidate.headline, reason: 'template_evidence_mismatch' };
+    }
+    for (const sentence of splitSentences(candidate.body)) {
+      const matched = matchSentence(sentence, 'body');
+      if (matched !== null && matched.templateId === 'F') {
+        return { rule: 'V11', text: sentence, reason: 'template_evidence_mismatch' };
+      }
+    }
+    return null;
+  }
   const attribution = candidate.provenance.attribution;
   if (
     attribution === undefined ||
@@ -362,10 +378,14 @@ export function validateCard(candidate: Card, cluster: Cluster, nowMs: number): 
   }
 
   const finalDrops = [...filtered.dropped, ...sentenceDrops];
+  const headlineTemplate = matchSentence(candidate.headline, 'headline')?.templateId;
   return {
     card: {
       ...candidate,
       tier,
+      // The headline survived (else V10 silenced), so it matched and the
+      // template is known; the conditional guards the types, not a real case.
+      ...(headlineTemplate === undefined ? {} : { template: headlineTemplate }),
       body: keptSentences.join(' '),
       citations: filtered.kept,
       provenance: { ...candidate.provenance, dropped: [...candidate.provenance.dropped, ...finalDrops] }

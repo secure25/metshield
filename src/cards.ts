@@ -67,6 +67,9 @@ export interface Card {
   id: string;
   clusterId: string;
   tier: CardTier;
+  // Copy template id (A–F), set by the validator from the headline match.
+  // Optional because buildCard constructs the candidate before validation.
+  template?: string;
   surface: ObservationSurface;
   threadRef?: string;
   headline: string;
@@ -121,14 +124,14 @@ export function resolveCitations(
 ): ResolveResult {
   const citations: Citation[] = [];
   const rejected: RejectedCitation[] = [];
-  const seen = new Set<string>();
+  const used = new Set<string>();
   const inCluster = new Set<string>(cluster.indicatorIds);
   const clusterObs = new Set<string>(cluster.observationIds);
   for (const id of citedIds) {
-    // One citation per indicator: a repeated id resolves once, so citing the
-    // same indicator twice cannot manufacture a second citation.
-    if (seen.has(id)) continue;
-    seen.add(id);
+    // No dedupe: a repeated id resolves to the next still-unused observation,
+    // so citing one indicator twice cites two distinct observations — the
+    // feed path's feed-entry + submission pair. Every citation still excludes
+    // the card surface and expired records; repeats past exhaustion reject.
     const stored = lookups.indicatorsById.get(id);
     if (stored === undefined || !inCluster.has(id)) {
       rejected.push({ indicatorId: id, code: 'citation_unknown_indicator' });
@@ -138,6 +141,7 @@ export function resolveCitations(
     const candidates: StoredObservation[] = [];
     for (const obsId of stored.observationIds) {
       if (!clusterObs.has(obsId)) continue;
+      if (used.has(obsId)) continue;
       const obs = lookups.observationsById.get(obsId);
       if (obs === undefined) continue;
       if (obs.observation.surface === cardSurface) continue;
@@ -157,6 +161,7 @@ export function resolveCitations(
       return a.observation.id < b.observation.id ? -1 : 1;
     });
     const picked = candidates[0];
+    used.add(picked.observation.id);
     // Display is the stored variant where the family keeps one
     // (payment_handle preserves the observed spelling in `display`) and the
     // canonical value everywhere else. Per-observation spellings are not
