@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import type { Observation, ObservationSource, ObservationSurface } from './contract.js';
+import type { Indicator, Observation, ObservationSource, ObservationSurface } from './contract.js';
+import { classifySubmissionValue } from './connectors/submit.js';
 import { Store } from './store.js';
 import type { StoredIndicator, StoredObservation } from './store.js';
 import { clusterIsEligibleForCard } from './correlate.js';
@@ -12,10 +13,10 @@ import { normalizeIndicator, routeWorldIndicator } from './normalize.js';
 import { proposeCard } from './models/muse.js';
 
 // Product pipeline (P8): one Store, one card list, one metrics block. Feed and
-// world connectors call ingest(); the submission route calls submitLink().
-// Only submissions build cards in this phase: ingest() records evidence and
-// returns, so both poll loops stay model-free, and card building for
-// ingested clusters is a P12 harness batch over getClusters().
+// world connectors call ingest(); the submission routes call submitLink() and
+// (P9) submitCreative(). Only submissions build cards in this phase: ingest()
+// records evidence and returns, so both poll loops stay model-free, and card
+// building for ingested clusters is a P12 harness batch over getClusters().
 //
 // design notes enforced here:
 // - ingest() is idempotent per observation id: a redelivery is a no-op that
@@ -55,16 +56,6 @@ export interface PipelineMetrics {
   clusters: number;
   cards: number;
   byTier: Record<Card['tier'], number>;
-}
-
-function looksLinky(value: string): boolean {
-  // P8 submission classification; P9 owns the real thing. Scheme or www
-  // prefix is a link; a dotted token without spaces or a leading @ is read
-  // as a bare domain (the P8 proof submits domains); anything else is tried
-  // as a handle. A dotted handle misfiles as a domain under this rule.
-  if (/:\/\//.test(value) || value.toLowerCase().startsWith('www.')) return true;
-  if (value.startsWith('@') || /\s/.test(value)) return false;
-  return value.includes('.');
 }
 
 export class Pipeline {
@@ -114,36 +105,54 @@ export class Pipeline {
   async submitLink(value: string, surface: ObservationSurface): Promise<SubmissionResult> {
     const trimmed = value.trim();
     if (trimmed.length === 0) return { card: null, declineReason: 'unparseable_value', observationId: null };
-    const kind = looksLinky(trimmed) ? 'offplatform_link' : 'payment_handle';
+    const kind = classifySubmissionValue(trimmed);
     const routed = routeWorldIndicator(kind, trimmed);
     let parseable = routed.indicators.length > 0;
     for (const pair of routed.indicators) {
       if ('rejected' in normalizeIndicator(pair)) parseable = false;
     }
     if (!parseable) return { card: null, declineReason: 'unparseable_value', observationId: null };
+    return this.finishSubmission(this.mintSubmission('link', [{ kind, value: trimmed }]), surface);
+  }
+
+  async submitCreative(indicators: Indicator[], surface: ObservationSurface): Promise<SubmissionResult> {
+    // No parseability gate: the file hash always normalises, and §8.4
+    // requires the observation even when extraction found nothing.
+    return this.finishSubmission(this.mintSubmission('creative', indicators), surface);
+  }
+
+  private mintSubmission(eventKind: 'link' | 'creative', indicators: Indicator[]): Observation {
     this.subSeq += 1;
     const id = `sub-${String(this.subSeq).padStart(6, '0')}`;
-    const observation: Observation = {
+    return {
       id,
       source: 'submission',
       observedAt: new Date(this.now()).toISOString(),
       surface: 'user_submission',
-      eventKind: 'link',
+      eventKind,
       actorRef: randomUUID(),
       subjectRef: null,
       threadRef: null,
-      indicators: [{ kind, value: trimmed }],
+      indicators,
       claimCodes: [],
       consent: 'user_submitted',
       synthetic: false
     };
+  }
+
+  private async finishSubmission(
+    observation: Observation,
+    surface: ObservationSurface
+  ): Promise<SubmissionResult> {
     const recorded = this.ingest(observation);
-    if (!recorded.accepted) return { card: null, declineReason: 'rejected_observation', observationId: id };
+    if (!recorded.accepted) {
+      return { card: null, declineReason: 'rejected_observation', observationId: observation.id };
+    }
     for (const clusterId of recorded.joinedClusters) {
       const existingId = this.cardByCluster.get(clusterId);
       if (existingId !== undefined) {
         const existing = this.cards.find((c) => c.id === existingId);
-        if (existing !== undefined) return { card: existing, declineReason: null, observationId: id };
+        if (existing !== undefined) return { card: existing, declineReason: null, observationId: observation.id };
       }
     }
     const clusters = this.store.getClusters();
@@ -151,13 +160,17 @@ export class Pipeline {
       const cluster = clusters.find((c) => c.id === clusterId);
       if (cluster === undefined || !clusterIsEligibleForCard(cluster)) continue;
       const card = await this.buildForCluster(cluster, surface);
-      if (card !== null) return { card, declineReason: null, observationId: id };
+      if (card !== null) return { card, declineReason: null, observationId: observation.id };
     }
     return {
       card: null,
       declineReason: this.lastDeclineReason(recorded.joinedClusters) ?? 'ineligible_cluster',
-      observationId: id
+      observationId: observation.id
     };
+  }
+
+  getRunDir(): string {
+    return this.runDir;
   }
 
   getCards(): Card[] {

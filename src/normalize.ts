@@ -267,6 +267,8 @@ export function routeWorldIndicator(kind: string, value: string): RoutedSignal {
       return { indicators: [], claimCodes: ['unsolicited_contact'] };
     case 'prize_claim':
       return { indicators: [], claimCodes: ['prize_claim'] };
+    case 'file_hash':
+      return { indicators: [{ family: 'file_hash', value }], claimCodes: [] };
     default:
       return { indicators: [], claimCodes: [] };
   }

@@ -5,7 +5,7 @@ export type ObservationSource = 'world' | 'public_feed' | 'submission';
 
 export type Surface = 'facebook' | 'messenger' | 'whatsapp';
 
-export type EventKind = 'message' | 'post' | 'ad' | 'group_invite' | 'link';
+export type EventKind = 'message' | 'post' | 'ad' | 'group_invite' | 'link' | 'creative';
 
 export type IndicatorKind =
   | 'payment_handle'
@@ -14,7 +14,8 @@ export type IndicatorKind =
   | 'credential_request'
   | 'impersonated_brand'
   | 'unsolicited_contact'
-  | 'prize_claim';
+  | 'prize_claim'
+  | 'file_hash';
 
 export type Indicator =
   | { kind: 'payment_handle'; value: string }
@@ -23,11 +24,13 @@ export type Indicator =
   | { kind: 'credential_request'; value: string }
   | { kind: 'impersonated_brand'; value: string }
   | { kind: 'unsolicited_contact'; value: string }
-  | { kind: 'prize_claim'; value: string };
+  | { kind: 'prize_claim'; value: string }
+  | { kind: 'file_hash'; value: string };
 
-// Product-side vocabulary (P0). The world emits the three Surfaces and seven
-// narrative IndicatorKinds above; these cover what the product adds. The
-// world never uses them.
+// Product-side vocabulary (P0). The world emits the three Surfaces and the
+// seven narrative IndicatorKinds above; these cover what the product adds.
+// The world never uses them — nor 'creative', nor the 'file_hash' kind a
+// submitted creative carries as its identity (§8.4 step 1).
 export type ObservationSurface = Surface | 'public_feed' | 'user_submission';
 
 export type IndicatorFamily =

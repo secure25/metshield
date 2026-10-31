@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { getHealth } from './health.js';
 import { Pipeline } from './pipeline.js';
 import type { ObservationSurface } from './contract.js';
+import { parseMultipartImage, submitCreativeSubmission, submitLinkSubmission } from './connectors/submit.js';
 
 const PORT: number = process.env.PORT ? Number(process.env.PORT) : 5173;
 
@@ -33,8 +34,9 @@ export function createApp(pipeline: Pipeline): Express {
     res.json(getHealth());
   });
 
-  // Minimal link submission (P8 slice of P9): value + render surface in, a
-  // card or a decline reason out. P9 adds creatives, SAM and actorRef tests.
+  // Submission paths (P9): value + render surface in, a card or a decline
+  // reason out. The link front delegates to the P8 pipeline path; the
+  // creative path runs SAM, extraction and the same card builder.
   app.post('/v1/submissions/link', (req, res) => {
     void (async () => {
       try {
@@ -47,8 +49,43 @@ export function createApp(pipeline: Pipeline): Express {
           res.status(400).json({ error: 'surface_invalid' });
           return;
         }
-        const result = await pipeline.submitLink(body.value, body.surface);
-        res.json({ card: result.card, declineReason: result.declineReason });
+        const result = await submitLinkSubmission(pipeline, body.value, body.surface);
+        res.json({ card: result.card, declineReason: result.declineReason, observationId: result.observationId });
+      } catch {
+        res.status(500).json({ error: 'pipeline_error' });
+      }
+    })();
+  });
+
+  // Multipart image in; the parser caps files at 5MB with a JSON 413. The raw
+  // body limit sits above that at 6MB, so only a file between the two limits
+  // falls through to Express's default HTML 413 — accepted, not handled.
+  app.post('/v1/submissions/creative', express.raw({ type: 'multipart/form-data', limit: '6mb' }), (req, res) => {
+    void (async () => {
+      try {
+        const contentTypeHeader = req.headers['content-type'];
+        const parsed = parseMultipartImage(
+          Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0),
+          Array.isArray(contentTypeHeader) ? contentTypeHeader[0] : contentTypeHeader
+        );
+        if (!parsed.ok) {
+          res.status(parsed.code === 'file_too_large' ? 413 : 400).json({ error: parsed.code });
+          return;
+        }
+        const surfaceField = parsed.fields.get('surface');
+        const surface = surfaceField === undefined ? 'facebook' : surfaceField;
+        if (!isProductSurface(surface)) {
+          res.status(400).json({ error: 'surface_invalid' });
+          return;
+        }
+        const result = await submitCreativeSubmission(pipeline, parsed.file, surface);
+        res.json({
+          card: result.card,
+          declineReason: result.declineReason,
+          observationId: result.observationId,
+          regions: result.regions,
+          annotatedImageRef: result.annotatedImageRef
+        });
       } catch {
         res.status(500).json({ error: 'pipeline_error' });
       }
