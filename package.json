@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "description": "MetShield synthetic scam-protection fixture (not a real Meta product)",
+  "description": "MetShield: a proposed cross-product scam-protection layer carrying a scam's context across surfaces (not a real Meta product)",
   "scripts": {
     "dev": "tsx src/server.ts",
     "start": "tsx src/server.ts",
