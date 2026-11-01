@@ -11,7 +11,8 @@
     "test": "vitest run",
     "check": "tsc --noEmit",
     "demo:world": "tsx src/demo-world.ts",
-    "demo:public": "tsx src/demo-public.ts"
+    "demo:public": "tsx src/demo-public.ts",
+    "probe:models": "tsx scripts/probe-models.ts"
   },
   "dependencies": {
     "express": "^5.1.0",

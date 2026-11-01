@@ -47,6 +47,17 @@ function baseArgs() {
 describe('client', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  });
+
+  it('merges extra body fields verbatim', async () => {
+    stubEnv();
+    const { calls } = stubFetch(() => Promise.resolve(jsonResponse(envelope({ a: 1 }))));
+    const result = await completeJson({ ...baseArgs(), extra: { reasoning_effort: 'minimal' } });
+    expect(result.ok).toBe(true);
+    const body = JSON.parse(String((calls[0]?.init as { body?: unknown })?.body ?? '{}')) as Record<string, unknown>;
+    expect(body.reasoning_effort).toBe('minimal');
+    expect(body.model).toBe('test-model');
   });
 
   function stubEnv(): void {

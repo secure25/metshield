@@ -22,12 +22,19 @@ export interface ProposeOptions {
   model?: string;
   temperature?: number;
   timeoutMs?: number;
+  reasoningEffort?: 'minimal' | 'low' | 'medium' | 'high' | 'xhigh';
   indicators: StoredIndicator[];
 }
 
 export const MUSE_DEFAULT_MODEL = 'muse-spark-1.3-contributor';
 const DEFAULT_TEMPERATURE = 0.2;
-const DEFAULT_TIMEOUT_MS = 30000;
+// Minimal: the probe measured 3420 output tokens for ~150 tokens of proposal
+// at the default effort, and the flat spelling is the accepted one (the nested
+// `reasoning.effort` 400s). A constrained extraction task needs no deliberation.
+const DEFAULT_REASONING_EFFORT = 'minimal';
+// 90s: the probe measured 29.7s demo-sized completions; 30s was killing good
+// calls. Revisited once the reasoning-effort probe lands.
+const DEFAULT_TIMEOUT_MS = 90000;
 const SCHEMA_NAME = 'card_proposal';
 
 // System prompt lives in prompts/card.v1.ts (versioned; the version is
@@ -72,6 +79,7 @@ export async function proposeCard(cluster: Cluster, opts: ProposeOptions): Promi
     schema: PROPOSAL_SCHEMA,
     schemaName: SCHEMA_NAME,
     temperature: opts.temperature ?? DEFAULT_TEMPERATURE,
-    timeoutMs: opts.timeoutMs ?? DEFAULT_TIMEOUT_MS
+    timeoutMs: opts.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+    extra: { reasoning_effort: opts.reasoningEffort ?? DEFAULT_REASONING_EFFORT }
   });
 }

@@ -24,6 +24,8 @@ export interface CompleteJsonArgs<T> {
   schemaName: string;
   temperature: number;
   timeoutMs: number;
+  /** Extra top-level body fields (e.g. reasoning controls); merged verbatim. */
+  extra?: Record<string, unknown>;
 }
 
 type FetchOutcome = { kind: 'responded'; status: number; text: string } | { kind: 'failed'; detail: string };
@@ -167,7 +169,8 @@ export async function completeJson<T>(args: CompleteJsonArgs<T>): Promise<Comple
     response_format: {
       type: 'json_schema',
       json_schema: { name: args.schemaName, schema: z.toJSONSchema(args.schema) }
-    }
+    },
+    ...(args.extra ?? {})
   });
   const first = await attemptOnce(baseUrl, apiKey, body, args);
   if (first.ok || first.code !== 'http_5xx') return first;

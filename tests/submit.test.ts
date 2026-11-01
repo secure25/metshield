@@ -41,7 +41,7 @@ function stubOutbound(opts: {
   localize?: (body: string) => { status: number; json: unknown };
 } = {}): Outbound {
   const state: Outbound = { samCalls: [], feedCalls: 0, other: [] };
-  const handler = opts.localize ?? (() => ({ status: 200, json: { regions: [] } }));
+  const handler = opts.localize ?? (() => ({ status: 200, json: responsesEnvelope(['']) }));
   vi.stubGlobal('fetch', async (url: unknown, init?: unknown) => {
     const href = String(url);
     if (href.startsWith('http://127.0.0.1')) return realFetch(href, init as RequestInit);
@@ -49,7 +49,7 @@ function stubOutbound(opts: {
       state.feedCalls += 1;
       return new Response(opts.feedBody ?? '', { status: 200, headers: { 'Content-Type': 'text/plain' } });
     }
-    if (href === `${SAM_BASE}/localize`) {
+    if (href === `${SAM_BASE}/responses`) {
       const body = String((init as { body?: unknown } | undefined)?.body ?? '');
       state.samCalls.push(body);
       const canned = handler(body);
@@ -216,15 +216,44 @@ async function postLink(
   return { status: res.status, payload: (await res.json()) as LinkPayload };
 }
 
-function samRegion(phrase: string, box: [number, number, number, number]): { status: number; json: unknown } {
-  return { status: 200, json: { regions: [{ phrase, score: 0.97, box, mask: null }] } };
+function responsesEnvelope(texts: string[]): unknown {
+  return {
+    output: [{ type: 'message', content: texts.map((text) => ({ type: 'output_text', text })) }]
+  };
+}
+
+function samLine(box: [number, number, number, number]): string {
+  const [x, y, width, height] = box;
+  return (
+    `<0f>0<|box;x1=${x};y1=${y};x2=${x + width - 1};y2=${y + height - 1};w=512;h=512;c=0.97|>` +
+    '<|mask;x=0;y=0;data=2,2,!!!!!|>'
+  );
+}
+
+// One phrase per request: the stub answers only the expected noun phrase and
+// returns an empty lane for the other four, mirroring a real localizer.
+function phraseAware(
+  phrase: string,
+  box: [number, number, number, number]
+): (body: string) => { status: number; json: unknown } {
+  return (body: string) => {
+    let asked = '';
+    try {
+      const parsed = JSON.parse(body) as { input?: Array<{ content?: Array<{ type?: string; text?: string }> }> };
+      const content = parsed.input?.[0]?.content ?? [];
+      asked = content.find((part) => part.type === 'input_text')?.text ?? '';
+    } catch {
+      asked = '';
+    }
+    return { status: 200, json: responsesEnvelope([asked === phrase ? samLine(box) : '']) };
+  };
 }
 
 describe('submission', () => {
   it('extracts a handle from a fixture creative into a payment_handle indicator', async () => {
     vi.stubEnv('METASHIELD_BASE_URL', SAM_BASE);
     vi.stubEnv('METASHIELD_API_KEY', 'test-key');
-    const outbound = stubOutbound({ localize: () => samRegion('payment handle', [40, 370, 200, 40]) });
+    const outbound = stubOutbound({ localize: phraseAware('payment handle', [40, 370, 200, 40]) });
     const { pipeline, app } = setup(proposeThrow);
     const { url, close } = await serve(app);
     try {
@@ -253,7 +282,7 @@ describe('submission', () => {
       expect(kinds.some((entry) => entry.startsWith('file_hash:'))).toBe(true);
       expect(fs.existsSync(payload.annotatedImageRef)).toBe(true);
       expect(fs.readFileSync(payload.annotatedImageRef, 'utf8')).toContain('<rect');
-      expect(outbound.samCalls).toHaveLength(1);
+      expect(outbound.samCalls).toHaveLength(5);
       expect(outbound.other).toHaveLength(0);
     } finally {
       await close();
@@ -263,7 +292,7 @@ describe('submission', () => {
   it('caches the localization on disk and skips the second call', async () => {
     vi.stubEnv('METASHIELD_BASE_URL', SAM_BASE);
     vi.stubEnv('METASHIELD_API_KEY', 'test-key');
-    const outbound = stubOutbound({ localize: () => samRegion('payment handle', [40, 370, 200, 40]) });
+    const outbound = stubOutbound({ localize: phraseAware('payment handle', [40, 370, 200, 40]) });
     const { runDir, app } = setup(proposeThrow);
     const { url, close } = await serve(app);
     try {
@@ -273,7 +302,7 @@ describe('submission', () => {
       expect(first.status).toBe(200);
       expect(second.status).toBe(200);
       expect(second.payload.regions).toEqual(first.payload.regions);
-      expect(outbound.samCalls).toHaveLength(1);
+      expect(outbound.samCalls).toHaveLength(5);
       expect(fs.existsSync(path.join(runDir, 'creatives', `${sha256Hex(file)}.json`))).toBe(true);
     } finally {
       await close();
@@ -283,7 +312,7 @@ describe('submission', () => {
   it('a blank image yields no content indicators and a decline, not an error', async () => {
     vi.stubEnv('METASHIELD_BASE_URL', SAM_BASE);
     vi.stubEnv('METASHIELD_API_KEY', 'test-key');
-    stubOutbound({ localize: () => ({ status: 200, json: { regions: [] } }) });
+    stubOutbound({ localize: () => ({ status: 200, json: responsesEnvelope(['']) }) });
     const { pipeline, app } = setup(proposeThrow);
     const { url, close } = await serve(app);
     try {
@@ -309,7 +338,7 @@ describe('submission', () => {
     vi.stubEnv('METASHIELD_API_KEY', 'test-key');
     const outbound = stubOutbound({
       feedBody: 'https://evil.example/offer\nhttps://other.example/x\n',
-      localize: () => samRegion('contact button', [40, 415, 200, 40])
+      localize: phraseAware('contact button', [40, 415, 200, 40])
     });
     const { pipeline, app } = setup(proposeF(FEED_NAME));
     const reader = startFeed({
@@ -401,7 +430,7 @@ describe('submission', () => {
     vi.stubEnv('METASHIELD_API_KEY', 'test-key');
     stubOutbound({
       feedBody: 'https://evil.example/offer\nhttps://other.example/x\n',
-      localize: () => samRegion('payment handle', [40, 370, 200, 40])
+      localize: phraseAware('payment handle', [40, 370, 200, 40])
     });
     const { runDir, pipeline, app } = setup(proposeF(FEED_NAME));
     const reader = startFeed({
@@ -453,7 +482,7 @@ describe('submission', () => {
   });
 
   it('rejects malformed creative uploads with coded errors', async () => {
-    stubOutbound({ localize: () => ({ status: 200, json: { regions: [] } }) });
+    stubOutbound({ localize: () => ({ status: 200, json: responsesEnvelope(['']) }) });
     const { app } = setup(proposeThrow);
     const { url, close } = await serve(app);
     try {
@@ -512,7 +541,7 @@ describe('submission', () => {
   it('an unconfigured localizer declines but still records the observation', async () => {
     vi.stubEnv('METASHIELD_BASE_URL', '');
     vi.stubEnv('METASHIELD_API_KEY', '');
-    const outbound = stubOutbound({ localize: () => samRegion('payment handle', [40, 370, 200, 40]) });
+    const outbound = stubOutbound({ localize: phraseAware('payment handle', [40, 370, 200, 40]) });
     const { pipeline, app } = setup(proposeThrow);
     const { url, close } = await serve(app);
     try {

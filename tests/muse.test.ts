@@ -198,11 +198,51 @@ describe('muse', () => {
     const body = JSON.parse(captured) as {
       model: string;
       temperature: number;
+      reasoning_effort: string;
       response_format: { type: string; json_schema: { name: string } };
     };
     expect(body.model).toBe('muse-spark-1.3-contributor');
     expect(body.temperature).toBe(0.2);
+    expect(body.reasoning_effort).toBe('minimal');
     expect(body.response_format.type).toBe('json_schema');
     expect(body.response_format.json_schema.name).toBe('card_proposal');
+  });
+
+  it('lets the caller raise the reasoning effort', async () => {
+    stubEnv();
+    let captured = '';
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: unknown, init: { body?: unknown }) => {
+        captured = String(init.body);
+        const envelope = {
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  decision: 'decline',
+                  tier: null,
+                  headline: null,
+                  body: null,
+                  safeAction: null,
+                  citations: [],
+                  declineReason: 'insufficient_cross_surface',
+                  confidence: 0.9
+                })
+              }
+            }
+          ],
+          usage: { prompt_tokens: 1, completion_tokens: 1 }
+        };
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          text: () => Promise.resolve(JSON.stringify(envelope))
+        } as unknown as Response);
+      })
+    );
+    await proposeCard(fixtureCluster(), { indicators: fixtureIndicators(), reasoningEffort: 'high' });
+    const body = JSON.parse(captured) as { reasoning_effort: string };
+    expect(body.reasoning_effort).toBe('high');
   });
 });

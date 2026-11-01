@@ -59,7 +59,9 @@ deltas, claim codes. It returns a proposal (emit/decline, tier, headline, body,
 safe action, cited indicator ids) or a coded decline. It is the reasoner because
 a whole cross-product cluster fits in context, it emits structured proposals
 that validate against a schema, and it is explicitly permitted to decline —
-declining is a first-class result, not a parse failure. Temperature 0.2. Every
+declining is a first-class result, not a parse failure. Temperature 0.2, reasoning
+effort minimal (the probe showed default-effort reasoning dominating latency on
+this constrained task). Every
 card records `muse-spark-1.3-contributor` and the prompt version.
 
 **SAM 3.1** — `locateAnchors` sends a submitted creative with five short noun
