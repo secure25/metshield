@@ -26,7 +26,7 @@ const EXPECTED_HEADINGS: string[] = [
   '## Observations',
   '## Clusters',
   '## Cards by tier',
-  '## Declines by reason',
+  '## Declines by reason (submitted links that emitted no card)',
   '## Demotions by rule',
   '## Model latency',
   '## Cost estimate',
@@ -56,6 +56,8 @@ describe('harness', () => {
     expect(text.startsWith('# MetShield run report')).toBe(true);
     expect(text).toContain(`demo-public-${DEMO_SEED}`);
     expect(text).toContain('Validator thresholds not tuned on real data');
+    expect(text).toContain('- emitted-card drops by rule: none');
+    expect(text).toContain('- declined-card drops by rule: none');
   }, 60000);
 
   it('demo:public asserts zero synthetic observations and the P8 property', async () => {
@@ -102,13 +104,26 @@ describe('harness', () => {
       );
       expect(batch.observations.length).toBeGreaterThan(0);
       const result = await runWorldScenario(batch, { seed: DEMO_SEED, rootDir: tmpRoot(), feedBody: FEED_BODY });
-      expect(result.metrics.observations.synthetic).toBeGreaterThan(0);
-      expect(result.metrics.observations.bySource.world).toBeGreaterThan(0);
-      expect(result.cards.length).toBeGreaterThanOrEqual(1);
+      expect(result.metrics.observations.synthetic).toBe(8000);
+      expect(result.metrics.observations.bySource).toEqual({ world: 8000, public_feed: 2, submission: 4 });
+      expect(result.metrics.observations.total).toBe(8006);
+      expect(result.metrics.clusters).toBe(30);
+      expect(result.cards).toHaveLength(3);
+      expect(result.metrics.byTier).toEqual({ context: 0, corroborated: 3, confirmed: 0 });
+      expect(result.metrics.eligibleEvents).toBe(4);
+      expect(result.metrics.silentByReason).toEqual({ validator_rejected: 1 });
+      expect(result.metrics.demotions).toBe(0);
+      expect(result.metrics.wouldHaveBeenTier).toEqual({ context: 0, corroborated: 1, confirmed: 0 });
+      expect(result.metrics.modelCalls).toBe(4);
       const text = fs.readFileSync(result.reportPath, 'utf8');
       for (const heading of EXPECTED_HEADINGS) {
         expect(text).toContain(heading);
       }
+      expect(text).toContain('validator restraint shown: passed (1 validator_rejected)');
+    expect(text).toContain('- emitted-card drops by rule: none');
+    expect(text).toContain(
+      '- declined-card drops by rule: V11: 1 (missing_or_invalid_attribution), V2: 1 (citation_not_cross_surface)'
+    );
     } finally {
       await new Promise<void>((resolve, reject) => server.close((err) => (err ? reject(err) : resolve())));
     }

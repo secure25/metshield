@@ -36,13 +36,18 @@ export const WORLD_BATCH_LIMIT = 8000;
 export const WORLD_ADVANCE_MINUTES = 300;
 export const WORLD_SUBMISSION_COUNT = 3;
 
+// The silence counter only ever counts submissions (see finishSubmission), so
+// the heading says so: clusters that never carded are out of its scope, and
+// the report must not read as claiming otherwise.
+const DECLINES_HEADING = '## Declines by reason (submitted links that emitted no card)';
+
 export const REQUIRED_HEADINGS: string[] = [
   '## Scenario',
   '## Source mix',
   '## Observations',
   '## Clusters',
   '## Cards by tier',
-  '## Declines by reason',
+  DECLINES_HEADING,
   '## Demotions by rule',
   '## Model latency',
   '## Cost estimate',
@@ -191,6 +196,7 @@ export interface ReportInput {
   proposer: string;
   metrics: PipelineMetrics;
   cards: Card[];
+  declinedDrops: DropSummary[];
   submissions: string[];
   feed: { name: string; publishedAt: string; transport: string };
   worldTick?: number;
@@ -198,14 +204,65 @@ export interface ReportInput {
   assertions: string[];
 }
 
+export interface DropSummary {
+  rule: string;
+  count: number;
+  reasons: string[];
+}
+
+// Rule counts with their reason strings, so the report names the refusal a
+// reader would otherwise have to look up in the rule table. Sorted by count,
+// then rule, with reasons sorted — deterministic for byte-identical replays.
+export function summarizeDrops(entries: Array<{ rule: string; reason: string }>): DropSummary[] {
+  const counts = new Map<string, { count: number; reasons: Set<string> }>();
+  for (const entry of entries) {
+    const found = counts.get(entry.rule) ?? { count: 0, reasons: new Set<string>() };
+    found.count += 1;
+    found.reasons.add(entry.reason);
+    counts.set(entry.rule, found);
+  }
+  return [...counts.entries()]
+    .map(([rule, value]) => ({ rule, count: value.count, reasons: [...value.reasons].sort() }))
+    .sort((a, b) => b.count - a.count || (a.rule < b.rule ? -1 : 1));
+}
+
+// Declined cards keep their drops in cards.jsonl, not in memory; the report
+// gathers them so the demotions section speaks for the whole run — emitted
+// and declined alike — instead of printing 'none' beside a rejection count.
+export function gatherDeclinedDrops(runDir: string): DropSummary[] {
+  const file = path.join(runDir, 'cards.jsonl');
+  if (!fs.existsSync(file)) return [];
+  const entries: Array<{ rule: string; reason: string }> = [];
+  for (const line of fs.readFileSync(file, 'utf8').split('\n')) {
+    if (line.length === 0) continue;
+    let record: unknown;
+    try {
+      record = JSON.parse(line) as unknown;
+    } catch {
+      continue;
+    }
+    if (typeof record !== 'object' || record === null) continue;
+    const declined = (record as { declined?: unknown }).declined;
+    const dropped = (record as { dropped?: unknown }).dropped;
+    if (declined !== true || !Array.isArray(dropped)) continue;
+    for (const entry of dropped) {
+      if (typeof entry !== 'object' || entry === null) continue;
+      const rule = (entry as { rule?: unknown }).rule;
+      const reason = (entry as { reason?: unknown }).reason;
+      if (typeof rule === 'string' && typeof reason === 'string') entries.push({ rule, reason });
+    }
+  }
+  return summarizeDrops(entries);
+}
+
 export function writeReport(runDir: string, input: ReportInput): string {
   fs.mkdirSync(runDir, { recursive: true });
   const m = input.metrics;
-  const byRule = new Map<string, number>();
+  const emittedEntries: Array<{ rule: string; reason: string }> = [];
   const pairs = new Map<string, number>();
   for (const card of input.cards) {
     for (const dropped of card.provenance.dropped) {
-      byRule.set(dropped.rule, (byRule.get(dropped.rule) ?? 0) + 1);
+      emittedEntries.push({ rule: dropped.rule, reason: dropped.reason });
     }
     const proposed = card.provenance.proposedTier;
     if (proposed !== null && proposed !== card.tier) {
@@ -243,23 +300,29 @@ export function writeReport(runDir: string, input: ReportInput): string {
   lines.push('## Clusters', `- open: ${m.clusters}`, '');
   lines.push('## Cards by tier', ...byTierLines, `- emitted: ${m.cards}`, '');
   lines.push(
-    '## Declines by reason',
+    DECLINES_HEADING,
     ...(declineEntries.length === 0 ? ['- none'] : declineEntries.map(([reason, count]) => `- ${reason}: ${count}`)),
     ''
   );
-  const dropLines =
-    byRule.size === 0
-      ? ['- drops by rule: none']
-      : [...byRule.entries()]
-          .sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))
-          .map(([rule, count]) => `- ${rule}: ${count}`);
+  const emittedDrops = summarizeDrops(emittedEntries);
+  const formatRuleCounts = (label: string, entries: DropSummary[]): string =>
+    entries.length === 0
+      ? `- ${label}: none`
+      : `- ${label}: ${entries.map((entry) => `${entry.rule}: ${entry.count} (${entry.reasons.join('; ')})`).join(', ')}`;
   const pairLines =
     pairs.size === 0
       ? ['- demotion pairs: none']
       : [...pairs.entries()]
           .sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))
           .map(([pair, count]) => `- ${pair}: ${count}`);
-  lines.push('## Demotions by rule', ...dropLines, ...pairLines, `- demotion events: ${m.demotions}`, '');
+  lines.push(
+    '## Demotions by rule',
+    formatRuleCounts('emitted-card drops by rule', emittedDrops),
+    formatRuleCounts('declined-card drops by rule', input.declinedDrops),
+    ...pairLines,
+    `- demotion events: ${m.demotions}`,
+    ''
+  );
   lines.push(
     '## Model latency',
     m.modelCalls === 0 ? '- n/a (no model calls)' : `- mean: ${(m.modelMs / m.modelCalls).toFixed(2)} ms over ${m.modelCalls} calls`,
@@ -378,6 +441,7 @@ export async function runPublicDemo(opts: PublicDemoOptions): Promise<DemoResult
     proposer: 'scripted (deterministic stand-in; live runs use muse-spark-1.3-contributor)',
     metrics,
     cards,
+    declinedDrops: gatherDeclinedDrops(runDir),
     submissions,
     feed,
     notes: ['no world code is loaded on this path; the feed and the submissions are the whole input'],
@@ -399,8 +463,13 @@ const PRODUCT_SURFACES: ObservationSurface[] = ['facebook', 'messenger', 'whatsa
 // Submissions derived from the batch itself: the first distinct parseable
 // domains the world actually emitted, each rendered on a product surface the
 // cluster does not already cover — so citation resolution always has two
-// eligible observations and every submission can genuinely emit.
-export function deriveSubmissions(observations: Observation[], count: number): DerivedSubmission[] {
+// eligible observations and every one of these can genuinely emit. (The
+// deliberately starved fourth submission is deriveStarvedSubmission's job.)
+export function deriveSubmissions(
+  observations: Observation[],
+  count: number,
+  exclude: ReadonlySet<string> = new Set()
+): DerivedSubmission[] {
   const seen = new Set<string>();
   const surfacesByCanonical = new Map<string, Set<ObservationSurface>>();
   const valueByCanonical = new Map<string, string>();
@@ -408,7 +477,7 @@ export function deriveSubmissions(observations: Observation[], count: number): D
     for (const item of obs.indicators) {
       if (item.kind !== 'offplatform_link') continue;
       const parsed = normalizeIndicator({ family: 'domain', value: item.value });
-      if ('rejected' in parsed) continue;
+      if ('rejected' in parsed || exclude.has(parsed.canonical)) continue;
       if (!seen.has(parsed.canonical)) {
         seen.add(parsed.canonical);
         valueByCanonical.set(parsed.canonical, item.value);
@@ -426,6 +495,62 @@ export function deriveSubmissions(observations: Observation[], count: number): D
     out.push({ value, cardSurface: PRODUCT_SURFACES.find((surface) => !covered.has(surface)) ?? 'messenger' });
   }
   return out;
+}
+
+export function feedCanonicals(feedBody: string): Set<string> {
+  const out = new Set<string>();
+  for (const line of feedBody.split('\n')) {
+    const trimmed = line.trim();
+    if (trimmed === '') continue;
+    const parsed = normalizeIndicator({ family: 'domain', value: trimmed });
+    if (!('rejected' in parsed)) out.add(parsed.canonical);
+  }
+  return out;
+}
+
+// The restraint demonstration: a batch-earned domain that cannot emit. It is
+// single-surface and is rendered on that surface, so resolution keeps exactly
+// one citation — the submission's own — and the card flips to source_reported
+// with no feed attribution behind it, which V11 rejects. (Not V3: the V11
+// attribution tripwire runs before the citation floor is ever reached.)
+// Single-indicator carriers only, so no shared handle can bridge in a second
+// surface; unlisted, so no feed entry adds a public_feed candidate; not
+// already submitted, since a resubmit returns the existing card instead of
+// declining. First qualifying canonical in batch order wins; null when the
+// batch offers nothing.
+export function deriveStarvedSubmission(
+  observations: Observation[],
+  derived: ReadonlySet<string>,
+  feedListed: ReadonlySet<string>
+): DerivedSubmission | null {
+  const surfacesByCanonical = new Map<string, Set<ObservationSurface>>();
+  const valueByCanonical = new Map<string, string>();
+  const disqualified = new Set<string>();
+  for (const obs of observations) {
+    for (const item of obs.indicators) {
+      if (item.kind !== 'offplatform_link') continue;
+      const parsed = normalizeIndicator({ family: 'domain', value: item.value });
+      if ('rejected' in parsed) continue;
+      const canonical = parsed.canonical;
+      if (derived.has(canonical) || feedListed.has(canonical) || obs.indicators.length !== 1) {
+        disqualified.add(canonical);
+        continue;
+      }
+      if (!surfacesByCanonical.has(canonical)) {
+        surfacesByCanonical.set(canonical, new Set());
+        valueByCanonical.set(canonical, item.value);
+      }
+      surfacesByCanonical.get(canonical)?.add(obs.surface);
+    }
+  }
+  for (const [canonical, surfaces] of surfacesByCanonical) {
+    if (disqualified.has(canonical) || surfaces.size !== 1) continue;
+    const value = valueByCanonical.get(canonical);
+    const only = [...surfaces][0];
+    if (value === undefined || only === undefined || !PRODUCT_SURFACES.includes(only)) continue;
+    return { value, cardSurface: only };
+  }
+  return null;
 }
 
 export function assertWorldResult(metrics: PipelineMetrics, cards: Card[]): void {
@@ -462,8 +587,16 @@ export async function runWorldScenario(batch: WorldBatch, opts: WorldDemoOptions
     pipeline.ingest(obs);
   }
   const feed = await pollFixtureFeed(pipeline, opts.feedBody, nowMs);
-  const derived = deriveSubmissions(batch.observations, opts.submissionCount ?? WORLD_SUBMISSION_COUNT);
+  const feedListed = feedCanonicals(opts.feedBody);
+  const derived = deriveSubmissions(batch.observations, opts.submissionCount ?? WORLD_SUBMISSION_COUNT, feedListed);
+  const derivedCanonicals = new Set<string>();
   for (const submission of derived) {
+    const parsed = normalizeIndicator({ family: 'domain', value: submission.value });
+    if (!('rejected' in parsed)) derivedCanonicals.add(parsed.canonical);
+  }
+  const starved = deriveStarvedSubmission(batch.observations, derivedCanonicals, feedListed);
+  const submissions: DerivedSubmission[] = starved === null ? derived : [...derived, starved];
+  for (const submission of submissions) {
     await pipeline.submitLink(submission.value, submission.cardSurface);
   }
   const metrics = pipeline.getMetrics();
@@ -476,13 +609,24 @@ export async function runWorldScenario(batch: WorldBatch, opts: WorldDemoOptions
     proposer: 'scripted (deterministic stand-in; live runs use muse-spark-1.3-contributor)',
     metrics,
     cards,
-    submissions: derived.map((submission) => `${submission.value} (as ${submission.cardSurface})`),
+    declinedDrops: gatherDeclinedDrops(runDir),
+    submissions: submissions.map((submission) => `${submission.value} (as ${submission.cardSurface})`),
     feed,
     worldTick: batch.tick,
-    notes: ['world observations arrived over HTTP from a seeded server; submissions were derived from observed links'],
+    notes: [
+      'world observations arrived over HTTP from a seeded server; submissions were derived from observed links',
+      ...(starved === null
+        ? []
+        : [
+            'the final submission reuses a single-surface domain on its own surface, showing validator restraint'
+          ])
+    ],
     assertions: [
       `world mix present: passed (${metrics.observations.bySource.world} world observations)`,
-      `at least one card: passed (${cards.length})`
+      `at least one card: passed (${cards.length})`,
+      ...(starved === null
+        ? []
+        : [`validator restraint shown: passed (${metrics.silentByReason['validator_rejected'] ?? 0} validator_rejected)`])
     ]
   });
   return { runId, runDir, reportPath, metrics, cards };
