@@ -3,16 +3,17 @@
 ## What was built during the hackathon
 
 Everything in this repository was written during the Meta Global AI Developer
-Hackathon window (2026-10-26 – 2026-11-04): all 32 commits, one author, dated
-2026-10-26 → 2026-11-02, with no pre-existing code, no vendored third-party
+Hackathon window (2026-10-26 – 2026-11-04): all 39 commits, one author, dated
+2026-10-26 → 2026-11-03, with no pre-existing code, no vendored third-party
 code, and no model weights. Verify with
 `git log --format='%h %ad %an %s' --date=short`.
 
 - The opening commit (`55b41c4`, "Import the living world… (W0–W2)") holds the
-  scaffold plus Living-World phases W0–W2 only — no product code. Every
-  product phase (P0–P13), the model probe, and the live verification arrived
-  in the commits after it, so "import" reads as what it is: day-one fixture
-  work, not pre-existing product.
+  scaffold plus Living-World phases W0–W2 only — no product code, zero `/v1/`
+  routes at that commit. Every product phase (P0–P13), the model probe, the
+  live verification, and the console redesign arrived in the commits after
+  it, so "import" reads as what it is: day-one fixture work, not
+  pre-existing product.
 - The Living World (`src/world/`) is a synthetic test fixture, not the
   product: every observation it emits carries `synthetic: true`, the product
   starts and serves `/v1/*` with `src/world/` removed, and tests enforce both
@@ -132,10 +133,14 @@ card records `muse-spark-1.3-contributor` and the prompt version.
 **SAM 3.1** — `locateAnchors` sends a submitted creative with five short noun
 phrases (`payment handle`, `QR code`, `contact button`, `brand logo`,
 `price or offer amount`) and receives masks; each masked region is cropped.
-Vector text inside a masked region (SVG creatives) is read deterministically
-and the extracted value becomes a join key; raster regions (PNG/JPEG) record
-their boxes and decline on evidence rather than guess — no OCR ships, so a
-raster ad contributes only its file hash. It is the localizer because the trust anchor
+The mask itself is the citation: the region SAM found is the evidence for
+"this creative carries that anchor", with no text extraction required and
+none claimed on raster. Vector text inside a masked region (SVG creatives)
+is read deterministically in offline tests — but the live endpoint rejects
+vectors (HTTP 400, measured) and returns boxes only for raster, so the live
+end-to-end mask→text→card chain is unmeasured: one logo region over two
+fixtures and ten phrase-calls, zero handle regions. Raster submissions
+record their boxes and decline on evidence rather than guess. It is the localizer because the trust anchor
 of a scam ad is visual — printed onto the image, not in the caption — and
 because masks are verifiable in a way a chat model's reading of a picture is
 not. SAM localizes; it never judges. The request shape (POST

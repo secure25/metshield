@@ -14,7 +14,7 @@ one. When it does not, it produces nothing and records why.
 **Not a real Meta product.** MetShield has not been built into Facebook,
 Messenger or WhatsApp. It is a proposed layer, demonstrated on synthetic and
 public data, with no integration with any Meta product. Nothing in this
-repository is a real user, a real brand, a real domain, or a real conversation.
+repository is a real user, a real brand, a real scam-target domain, or a real conversation.
 
 The Living World in `src/world/` is the synthetic test fixture MetShield runs
 against — invented accounts, campaigns and events — and is not the product; only
@@ -82,7 +82,7 @@ npm run dev        # one server on http://localhost:5173
   live feed (operator header required; see below).
 
 ```sh
-npm test           # full suite (30 test files, 270 tests)
+npm test           # full suite (30 test files, 272 tests)
 npm run check      # tsc --noEmit
 npm run demo:world   # fixed world scenario → runs/demo-world-42/report.md
 npm run demo:public  # fixed public scenario, no fixture → runs/demo-public-42/report.md
@@ -118,7 +118,7 @@ deterministic proposer and are labelled as such in every report.
 | Job | Model | Why this one |
 |---|---|---|
 | Correlate + decide + draft the card | **Muse Spark 1.3** (`muse-spark-1.3-contributor`) | whole-cluster context, structured proposals, permitted to decline |
-| Locate the trust anchor in an ad creative | **SAM 3.1** | text prompt → mask for each match; an extracted value becomes a join key |
+| Locate the trust anchor in an ad creative | **SAM 3.1** | text prompt → mask for each match; the mask itself is the citation (live text extraction unmeasured — see `docs/model-probe.md`) |
 
 Only Meta models are called — never another provider, not for fallback, not for
 tests. The SAM request shape (POST `{base}/responses`, one noun phrase per call)
@@ -143,13 +143,11 @@ the default seed is `20261026`.
 Every run report carries these verbatim under `Limitations` (constants in
 `src/honesty.ts`):
 
-- Synthetic volume: most observations in world runs are synthetic fixture
-  data; results measure the pipeline, not real users.
-- Single-scenario results: one fixed scenario at one seed, not an accuracy
-  estimate.
-- No real Meta integration.
-- No prevalence estimate: no ground-truth labels by design.
-- Validator thresholds not tuned on real data.
+- Synthetic volume: most observations in world runs are synthetic fixture data, and every world-sourced observation is labeled synthetic:true; results measure the pipeline, not real users.
+- Single-scenario results: each report covers one fixed scenario at one seed, not a sweep; its numbers are engineering evidence from that run, not an accuracy estimate.
+- No real Meta integration: MetShield has not been built into Facebook, Messenger, or WhatsApp; it is a proposed layer demonstrated on synthetic and public data.
+- No prevalence estimate: nothing here estimates scam prevalence or detector precision/recall; the run contains no ground-truth labels by design.
+- Validator thresholds not tuned on real data: citation counts, tiers, and time windows were set by judgment against synthetic scenarios, not fitted to real-world measurements.
 
 See [docs/metshield-submission.md](docs/metshield-submission.md) for the full
 submission write-up.
