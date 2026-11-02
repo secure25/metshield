@@ -18,6 +18,9 @@ code, and no model weights. Verify with
   starts and serves `/v1/*` with `src/world/` removed, and tests enforce both
   the boundary and the flag.
 - Track: Indie Developer, solo-built (one author across all commits).
+  Problem statement: Build for Your World — bringing Meta's models into
+  trust and safety on Meta's own surfaces, a domain known firsthand as a
+  user of all three products.
 - Nothing predates the event. If that sentence is ever wrong, this section is
   where the exception gets named.
 
