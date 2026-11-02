@@ -105,6 +105,34 @@ export function verifyPng(buffer: Buffer): { width: number; height: number } | n
   return { width: buffer.readUInt32BE(16), height: buffer.readUInt32BE(20) };
 }
 
+// SVG fixtures are accepted explicitly (not sniffed past the guard): dims come
+// from the <svg> root's width/height attributes, falling back to the viewBox.
+// Whether the endpoint itself accepts vectors is the experiment's question,
+// and a 400 is a recorded finding, not a fixture failure.
+export function verifySvgDims(buffer: Buffer): { width: number; height: number } | null {
+  const tag = /<svg\b[^>]*>/.exec(buffer.subarray(0, 2048).toString('utf8'));
+  if (tag === null) return null;
+  const attr = (name: string): number | null => {
+    const found = new RegExp(`${name}\\s*=\\s*"([0-9]+(?:\\.[0-9]+)?)`).exec(tag[0]);
+    if (found === null) return null;
+    const value = Number(found[1]);
+    return Number.isFinite(value) ? value : null;
+  };
+  const width = attr('width');
+  const height = attr('height');
+  if (width !== null && height !== null && width > 0 && height > 0) {
+    return { width: Math.floor(width), height: Math.floor(height) };
+  }
+  const viewBox = /viewBox\s*=\s*"([^"]+)"/.exec(tag[0]);
+  if (viewBox !== null) {
+    const parts = viewBox[1].trim().split(/\s+/).map(Number);
+    if (parts.length === 4 && parts.every((n) => Number.isFinite(n)) && parts[2] > 0 && parts[3] > 0) {
+      return { width: Math.floor(parts[2]), height: Math.floor(parts[3]) };
+    }
+  }
+  return null;
+}
+
 export function sha256Hex(buffer: Buffer): string {
   return createHash('sha256').update(buffer).digest('hex');
 }
@@ -200,7 +228,7 @@ interface ProbeReport {
   reasoningTests: Array<{ name: string; extra: Record<string, unknown>; record: CallRecord }>;
   reasonerDemo: { runs: CallRecord[]; medianMs: number; budgetMs: number; fitsBudget: boolean };
   localizer: {
-    fixture: { path: string; sha256: string; width: number; height: number; generated: boolean };
+    fixture: { path: string; kind: 'png' | 'svg'; sha256: string; width: number; height: number; generated: boolean };
     phrases: string[];
     ok: boolean;
     code: string | null;
@@ -247,24 +275,24 @@ function hostOf(url: string): string {
   }
 }
 
-function ensureFixtureImage(): { path: string; bytes: Buffer; generated: boolean } {
+function ensureFixtureImage(): { path: string; bytes: Buffer; generated: boolean; kind: 'png' | 'svg' } {
   const override = process.env.PROBE_IMAGE;
   if (override !== undefined && override.length > 0) {
     const bytes = fs.readFileSync(override);
-    const dims = verifyPng(bytes);
-    if (dims === null) throw new Error(`PROBE_IMAGE is not a PNG: ${override}`);
-    return { path: override, bytes, generated: false };
+    if (verifyPng(bytes) !== null) return { path: override, bytes, generated: false, kind: 'png' };
+    if (verifySvgDims(bytes) !== null) return { path: override, bytes, generated: false, kind: 'svg' };
+    throw new Error(`PROBE_IMAGE is neither PNG nor SVG: ${override}`);
   }
   const file = path.join('fixtures', 'probe', 'probe-creative.png');
   if (fs.existsSync(file)) {
     const bytes = fs.readFileSync(file);
     if (verifyPng(bytes) === null) throw new Error(`committed fixture is not a PNG: ${file}`);
-    return { path: file, bytes, generated: false };
+    return { path: file, bytes, generated: false, kind: 'png' };
   }
   const bytes = generateProbePng();
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, bytes);
-  return { path: file, bytes, generated: true };
+  return { path: file, bytes, generated: true, kind: 'png' };
 }
 
 async function main(): Promise<void> {
@@ -279,11 +307,13 @@ async function main(): Promise<void> {
   // before any billed call: a rerun in a fresh shell without PROBE_IMAGE set
   // silently falls back to the generated pattern otherwise.
   const fixture = ensureFixtureImage();
-  const fixtureDims = verifyPng(fixture.bytes) ?? { width: 0, height: 0 };
+  const fixtureDims =
+    (fixture.kind === 'png' ? verifyPng(fixture.bytes) : verifySvgDims(fixture.bytes)) ?? { width: 0, height: 0 };
   console.log(
     JSON.stringify({
       event: 'probe_fixture',
       path: fixture.path,
+      kind: fixture.kind,
       sha256: sha256Hex(fixture.bytes),
       width: fixtureDims.width,
       height: fixtureDims.height
@@ -400,7 +430,7 @@ async function main(): Promise<void> {
     reasoningTests,
     reasonerDemo: { runs: demoRuns, medianMs, budgetMs: DEMO_BUDGET_MS, fitsBudget: medianMs >= 0 && medianMs <= DEMO_BUDGET_MS },
     localizer: {
-      fixture: { path: fixture.path, sha256: sha256Hex(fixture.bytes), width: fixtureDims.width, height: fixtureDims.height, generated: fixture.generated },
+      fixture: { path: fixture.path, kind: fixture.kind, sha256: sha256Hex(fixture.bytes), width: fixtureDims.width, height: fixtureDims.height, generated: fixture.generated },
       phrases: probePhrases.length > 0 ? probePhrases : ['payment handle'],
       ok: located.ok,
       code: located.ok ? null : located.code,

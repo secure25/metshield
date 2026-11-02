@@ -82,7 +82,7 @@ npm run dev        # one server on http://localhost:5173
   live feed (operator header required; see below).
 
 ```sh
-npm test           # full suite (30 test files, 267 tests)
+npm test           # full suite (30 test files, 270 tests)
 npm run check      # tsc --noEmit
 npm run demo:world   # fixed world scenario → runs/demo-world-42/report.md
 npm run demo:public  # fixed public scenario, no fixture → runs/demo-public-42/report.md
@@ -92,7 +92,7 @@ Environment (all optional except for live model calls):
 
 | Variable | Purpose |
 |---|---|
-| `METASHIELD_BASE_URL` / `METASHIELD_API_KEY` | OpenAI-compatible Meta Model API endpoint and key |
+| `METASHIELD_BASE_URL` / `METASHIELD_API_KEY` | OpenAI-compatible Meta Model API endpoint (e.g. `https://api.meta.ai/v1` — the `/v1` path is part of the URL) and key |
 | `METASHIELD_LOCALIZER` | localizer model id (default `sam-3.1`) |
 | `METASHIELD_RUN_DIR` | run output directory (default `./runs`) |
 | `PORT` | server port (default `5173`) |

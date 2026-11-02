@@ -6,7 +6,8 @@ import {
   generateProbePng,
   median,
   sha256Hex,
-  verifyPng
+  verifyPng,
+  verifySvgDims
 } from '../scripts/probe-models.js';
 
 // Probe helpers only — main() makes billed calls and is never invoked here.
@@ -23,6 +24,22 @@ describe('probe helpers', () => {
   it('rejects non-PNG bytes', () => {
     expect(verifyPng(Buffer.from('not a png'))).toBeNull();
     expect(verifyPng(Buffer.alloc(0))).toBeNull();
+  });
+
+  it('parses SVG dimensions from width and height attributes', () => {
+    const svg = Buffer.from('<svg width="1024" height="1024" viewBox="0 0 1024 1024"><text x="640" y="970">handle</text></svg>');
+    expect(verifySvgDims(svg)).toEqual({ width: 1024, height: 1024 });
+  });
+
+  it('falls back to the SVG viewBox when attributes are missing', () => {
+    const svg = Buffer.from('<svg viewBox="0 0 640 480"></svg>');
+    expect(verifySvgDims(svg)).toEqual({ width: 640, height: 480 });
+  });
+
+  it('rejects non-SVG bytes for SVG dimensions', () => {
+    expect(verifySvgDims(Buffer.from('not an image'))).toBeNull();
+    expect(verifySvgDims(Buffer.alloc(0))).toBeNull();
+    expect(verifySvgDims(Buffer.from('<svg></svg>'))).toBeNull();
   });
 
   it('computes medians for odd and even counts', () => {
