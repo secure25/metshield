@@ -12,7 +12,8 @@
     "check": "tsc --noEmit",
     "demo:world": "tsx src/demo-world.ts",
     "demo:public": "tsx src/demo-public.ts",
-    "probe:models": "tsx scripts/probe-models.ts"
+    "probe:models": "tsx scripts/probe-models.ts",
+    "live:public": "tsx scripts/live-public.ts"
   },
   "dependencies": {
     "express": "^5.1.0",
