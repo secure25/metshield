@@ -3,7 +3,7 @@
 ## What was built during the hackathon
 
 Everything in this repository was written during the Meta Global AI Developer
-Hackathon window (2026-10-26 – 2026-11-04): all 39 commits, one author, dated
+Hackathon window (2026-10-26 – 2026-11-04): all 40 commits, one author, dated
 2026-10-26 → 2026-11-03, with no pre-existing code, no vendored third-party
 code, and no model weights. Verify with
 `git log --format='%h %ad %an %s' --date=short`.
@@ -24,6 +24,9 @@ code, and no model weights. Verify with
   user of all three products.
 - Nothing predates the event. If that sentence is ever wrong, this section is
   where the exception gets named.
+- Built with Muse Code assistance throughout, starting with the Living World
+  on opening day; the tooling changes nothing about provenance — every line
+  was written inside the window above.
 
 ## Problem
 
