@@ -21,6 +21,11 @@ against — invented accounts, campaigns and events — and is not the product; 
 this package is submitted, and the product starts and serves its API with the
 fixture removed.
 
+Everything in this repository was written during the Meta Global AI Developer
+Hackathon (Oct 26 – Nov 4, 2026): all 41 commits, one author, no pre-existing
+code. Provenance details and verification commands are in
+[docs/metshield-submission.md](docs/metshield-submission.md#what-was-built-during-the-hackathon).
+
 ## Architecture
 
 ```
