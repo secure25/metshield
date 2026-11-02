@@ -82,7 +82,7 @@ npm run dev        # one server on http://localhost:5173
   live feed (operator header required; see below).
 
 ```sh
-npm test           # full suite (27 test files, 243 tests)
+npm test           # full suite (30 test files, 267 tests)
 npm run check      # tsc --noEmit
 npm run demo:world   # fixed world scenario → runs/demo-world-42/report.md
 npm run demo:public  # fixed public scenario, no fixture → runs/demo-public-42/report.md
@@ -106,12 +106,13 @@ deterministic proposer and are labelled as such in every report.
 | Job | Model | Why this one |
 |---|---|---|
 | Correlate + decide + draft the card | **Muse Spark 1.3** (`muse-spark-1.3-contributor`) | whole-cluster context, structured proposals, permitted to decline |
-| Locate the trust anchor in an ad creative | **SAM 3.1** | text prompt → mask for each match; the mask becomes the join key |
+| Locate the trust anchor in an ad creative | **SAM 3.1** | text prompt → mask for each match; an extracted value becomes a join key |
 
 Only Meta models are called — never another provider, not for fallback, not for
-tests. The SAM `/localize` request shape is assumed pending a first billed call;
-until then the creative path is exercised against recorded shapes, and every card
-records the model and prompt version behind it.
+tests. The SAM request shape (POST `{base}/responses`, one noun phrase per call)
+and the grammar parse are verified by billed probe calls; see
+[docs/model-probe.md](docs/model-probe.md). Every card records the model and
+prompt version behind it.
 
 ## The Living World fixture
 

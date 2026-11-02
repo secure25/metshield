@@ -26,7 +26,7 @@ export default function ClockStrip(props: Props): React.JSX.Element {
         </span>
         <span className="brand-text">
           <strong>MetShield</strong>
-          <small>Operator Console — Simulated World</small>
+          <small>Operator Console — Simulated World · Synthetic fixture</small>
         </span>
       </div>
 
