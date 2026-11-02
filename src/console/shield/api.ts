@@ -70,4 +70,13 @@ export function fetchMetrics(): Promise<PipelineMetrics> {
   return getJson<PipelineMetrics>('/v1/metrics');
 }
 
+export interface HealthResponse {
+  ok: boolean;
+  version: string;
+}
+
+export function fetchHealth(): Promise<HealthResponse> {
+  return getJson<HealthResponse>('/v1/health');
+}
+
 export type { Card, Proposal, Cluster, PipelineMetrics };

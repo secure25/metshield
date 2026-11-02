@@ -26,8 +26,13 @@ export default function EvidencePanel(props: EvidencePanelProps): React.JSX.Elem
   const observed = card === null ? [] : [...card.citations].map((citation) => citation.observedAt).sort();
   const span = observed.length >= 2 ? formatSpan(observed[0] as string, observed[observed.length - 1] as string) : null;
   return (
-    <section className="shield-panel" aria-label="Evidence">
-      <h2>Evidence</h2>
+    <section id="shield-evidence" className="shield-panel" aria-label="Evidence dossier">
+      <div className="shield-panel-head">
+        <h2>Evidence dossier</h2>
+        <span className="shield-muted">
+          {cards.length} evidence card{cards.length === 1 ? '' : 's'}
+        </span>
+      </div>
       {cards.length === 0 && !loading ? <p className="shield-muted">No cards emitted yet.</p> : null}
       <ul className="shield-card-list">
         {cards.map((entry) => (
@@ -51,9 +56,10 @@ export default function EvidencePanel(props: EvidencePanelProps): React.JSX.Elem
       ) : null}
       {loading && card === null && !error ? <p className="shield-muted">Loading card…</p> : null}
       {card && !error ? (
-        <article className="shield-evidence">
+        <article className="shield-evidence" data-testid="evidence-article">
           <h3>{card.headline}</h3>
           <p className="shield-tier-line">{tierLine(card, proposal)}</p>
+          {proposal !== null ? <p className="shield-muted">Model confidence {proposal.confidence}</p> : null}
           <p>{card.body}</p>
           <p className="shield-privacy">{privacyLine}</p>
           {card.provenance.attribution ? (
@@ -62,22 +68,23 @@ export default function EvidencePanel(props: EvidencePanelProps): React.JSX.Elem
             </p>
           ) : null}
           <h4>Cited indicators</h4>
-          <ul className="shield-cite-list">
+          <ol className="shield-timeline">
             {card.citations.map((citation, index) => (
               <li
                 key={`${citation.observationId}:${citation.indicatorId}:${index}`}
                 data-testid="citation-chip"
-                className="shield-cite"
+                className="shield-timeline-row"
               >
-                <span className="shield-cite-display">{citation.display}</span>
-                <span className="shield-muted">{FAMILY_LABELS[citation.family]}</span>
-                <span className="shield-chip">{citation.surface}</span>
-                <span className="shield-muted">
-                  {formatDateTime(citation.observedAt)} · {formatAge(nowMs, citation.observedAt)}
+                <span className="shield-timeline-when shield-muted">{formatDateTime(citation.observedAt)}</span>
+                <span className="shield-timeline-body">
+                  <span className="shield-cite-display">{citation.display}</span>
+                  <span className="shield-muted">{FAMILY_LABELS[citation.family]}</span>
+                  <span className="shield-chip">{citation.surface}</span>
+                  <span className="shield-muted">{formatAge(nowMs, citation.observedAt)}</span>
                 </span>
               </li>
             ))}
-          </ul>
+          </ol>
           {span ? (
             <p className="shield-muted" data-testid="citation-span">
               Cited observations {span}
@@ -85,7 +92,15 @@ export default function EvidencePanel(props: EvidencePanelProps): React.JSX.Elem
           ) : (
             <p className="shield-muted">Single cited observation</p>
           )}
-          <h4>Dropped claims</h4>
+          <h4>
+            Dropped claims
+            {card.provenance.dropped.length > 0 ? (
+              <span className="shield-muted">
+                {' '}
+                · {card.provenance.dropped.length} withheld
+              </span>
+            ) : null}
+          </h4>
           {card.provenance.dropped.length === 0 ? (
             <p className="shield-muted">None — every claim survived validation.</p>
           ) : (

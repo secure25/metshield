@@ -1,9 +1,10 @@
 import React from 'react';
-import type { ApiError, Cluster } from './api';
+import type { ApiError, Card, Cluster } from './api';
 import { formatSpan } from './format';
 
 export interface ClustersPanelProps {
   clusters: Cluster[];
+  cards: Card[];
   selectedClusterId: string | null;
   onSelectCluster: (clusterId: string) => void;
   loading: boolean;
@@ -27,11 +28,29 @@ function surfaceCounts(cluster: Cluster): string {
     .join(' · ');
 }
 
+const TIER_RANK: Record<Card['tier'], number> = { context: 0, corroborated: 1, confirmed: 2 };
+
+// The badge names the highest card tier emitted from this cluster — a real
+// escalation ladder, not an invented severity scale. A cluster with no card
+// says so rather than borrowing a neighbor's tier.
+function clusterBadge(cluster: Cluster, cards: Card[]): Card['tier'] | null {
+  let best: Card['tier'] | null = null;
+  for (const card of cards) {
+    if (card.clusterId !== cluster.id) continue;
+    if (best === null || TIER_RANK[card.tier] > TIER_RANK[best]) best = card.tier;
+  }
+  return best;
+}
+
+function plural(count: number, one: string, many: string): string {
+  return `${count} ${count === 1 ? one : many}`;
+}
+
 export default function ClustersPanel(props: ClustersPanelProps): React.JSX.Element {
-  const { clusters, selectedClusterId, onSelectCluster, loading, error } = props;
+  const { clusters, cards, selectedClusterId, onSelectCluster, loading, error } = props;
   return (
-    <section className="shield-panel" aria-label="Clusters">
-      <h2>Clusters</h2>
+    <section id="shield-operations" className="shield-panel" aria-label="Open operations">
+      <h2>Open operations</h2>
       {error ? (
         <p className="shield-error" role="alert">
           {error.code}
@@ -42,6 +61,7 @@ export default function ClustersPanel(props: ClustersPanelProps): React.JSX.Elem
       <ul className="shield-cluster-list">
         {clusters.map((cluster) => {
           const selected = cluster.id === selectedClusterId;
+          const badge = clusterBadge(cluster, cards);
           return (
             <li key={cluster.id}>
               <button
@@ -50,7 +70,20 @@ export default function ClustersPanel(props: ClustersPanelProps): React.JSX.Elem
                 aria-pressed={selected}
                 onClick={() => onSelectCluster(cluster.id)}
               >
-                <span className="shield-cluster-id">{cluster.id}</span>
+                <span className="shield-cluster-head">
+                  <span className="shield-cluster-id">{cluster.id}</span>
+                  {badge === null ? (
+                    <span className="shield-tier shield-tier-none">no card</span>
+                  ) : (
+                    <span className={`shield-tier shield-tier-${badge}`}>{badge}</span>
+                  )}
+                </span>
+                <span className="shield-muted">
+                  {plural(cluster.indicatorIds.length, 'indicator', 'indicators')} ·{' '}
+                  {plural(cluster.observationIds.length, 'observation', 'observations')}
+                </span>
+                <span className="shield-muted">{surfaceCounts(cluster)}</span>
+                <span className="shield-muted">{formatSpan(cluster.firstSeenAt, cluster.lastSeenAt)}</span>
                 <span className="shield-chip-row">
                   {cluster.surfaces.map((surface) => (
                     <span key={surface} className="shield-chip">
@@ -61,11 +94,6 @@ export default function ClustersPanel(props: ClustersPanelProps): React.JSX.Elem
                     {sourceLabel(cluster)}
                   </span>
                 </span>
-                <span className="shield-muted">
-                  {cluster.indicatorIds.length} indicators · {cluster.observationIds.length} observations
-                </span>
-                <span className="shield-muted">{surfaceCounts(cluster)}</span>
-                <span className="shield-muted">{formatSpan(cluster.firstSeenAt, cluster.lastSeenAt)}</span>
               </button>
             </li>
           );

@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, within } from '@testing-library/react';
 import ShieldPage from '../src/console/shield/ShieldPage';
 import type { Card, Cluster, PipelineMetrics } from '../src/console/shield/api';
 import type { Proposal } from '../src/console/shield/api';
@@ -32,6 +32,9 @@ function stubApi(fixture: ApiFixture): void {
     const href = String(url);
     if (href === '/v1/clusters') return json({ clusters: fixture.clusters });
     if (href === '/v1/metrics') return json(fixture.metrics);
+    if (href === '/v1/health') {
+      return json({ ok: true, version: '0.0.0-test', models: { reasoner: null, localizer: null }, uptimeMs: 0 });
+    }
     if (href === '/v1/cards' || href.startsWith('/v1/cards?')) {
       return json({ cards: fixture.cards, nextCursor: null });
     }
@@ -162,13 +165,13 @@ describe('shield console', () => {
       metrics: makeMetrics()
     });
     render(<ShieldPage pollMs={0} nowMs={NOW_MS} />);
-    await screen.findByText('V8');
-    expect(screen.queryByText('dropped-claim-marker')).not.toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Surface preview' }));
-    await screen.findByText('Preview of the payload a product renders under its own warning.');
-    await screen.findByText(card.headline);
-    expect(screen.queryByText('V8')).toBeNull();
-    expect(screen.queryByText('dropped-claim-marker')).toBeNull();
+    const article = await screen.findByTestId('evidence-article');
+    expect(within(article).queryByText('V8')).not.toBeNull();
+    expect(within(article).queryByText('dropped-claim-marker')).not.toBeNull();
+    const preview = await screen.findByTestId('surface-preview');
+    await within(preview).findByText('Preview of the payload a product renders under its own warning.');
+    expect(within(preview).queryByText('V8')).toBeNull();
+    expect(within(preview).queryByText('dropped-claim-marker')).toBeNull();
   });
 
   it('shows the coded error for an unknown card id instead of an empty card', async () => {
@@ -180,7 +183,8 @@ describe('shield console', () => {
       metrics: makeMetrics({ cards: 0 })
     });
     render(<ShieldPage pollMs={0} nowMs={NOW_MS} />);
-    await screen.findByText('card_not_found');
+    // Both the dossier and the inline preview render the coded error.
+    expect((await screen.findAllByText('card_not_found')).length).toBe(2);
     expect(screen.queryByText(card.headline)).toBeNull();
     expect(screen.queryAllByTestId('citation-chip')).toHaveLength(0);
   });
@@ -230,12 +234,47 @@ describe('shield console', () => {
       metrics: makeMetrics()
     });
     render(<ShieldPage pollMs={0} nowMs={NOW_MS} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Surface preview' }));
-    await screen.findByText('An existing warning is already here');
-    expect(screen.queryByText(card.headline)).not.toBeNull();
+    const preview = await screen.findByTestId('surface-preview');
+    await within(preview).findByText('An existing warning is already here');
+    // The headline renders twice: once in the dossier, once in the preview.
+    expect(screen.getAllByText(card.headline)).toHaveLength(2);
     const feedName = card.provenance.attribution?.feedName ?? 'missing-feed';
-    expect(screen.queryByText(new RegExp(`Listed by ${feedName}`))).not.toBeNull();
-    const chips = screen.getAllByTestId('preview-chip');
+    expect(screen.getAllByText(new RegExp(`Listed by ${feedName}`))).toHaveLength(2);
+    const chips = within(preview).getAllByTestId('preview-chip');
     expect(chips.length).toBeGreaterThan(0);
+  });
+
+  it('renders stat counts and the footer version from the API', async () => {
+    const card = makeCard({
+      id: 'CARD-000001',
+      provenance: {
+        ...makeCard({ id: 'CARD-000001' }).provenance,
+        dropped: [
+          { rule: 'V8', text: 'one', reason: 'r1' },
+          { rule: 'V4a', text: 'two', reason: 'r2' }
+        ]
+      }
+    });
+    stubApi({
+      clusters: [makeCluster({ id: 'CLU-000001' }), makeCluster({ id: 'CLU-000002' })],
+      cards: [card],
+      detail: { 'CARD-000001': { card, proposal: makeProposal() } },
+      metrics: makeMetrics({ silentByReason: { single_family: 1 } })
+    });
+    render(<ShieldPage pollMs={0} nowMs={NOW_MS} />);
+    expect((await screen.findByTestId('stat-open-operations')).textContent).toContain('2');
+    expect(screen.getByTestId('stat-evidence-cards').textContent).toContain('1');
+    expect(screen.getByTestId('stat-claims-withheld').textContent).toContain('2');
+    expect(screen.getByTestId('stat-events-silent').textContent).toContain('1');
+    expect(await screen.findByText(/MetShield v0\.0\.0-test/)).not.toBeNull();
+  });
+
+  it('offers no integrations nav entry the API cannot back', async () => {
+    stubApi({ clusters: [], cards: [], detail: {}, metrics: makeMetrics({ cards: 0 }) });
+    render(<ShieldPage pollMs={0} nowMs={NOW_MS} />);
+    await screen.findByText('Restraint');
+    expect(screen.queryByText('Integrations')).toBeNull();
+    expect(screen.queryByText('New operation')).toBeNull();
+    expect(screen.queryByText('Add evidence')).toBeNull();
   });
 });

@@ -1,13 +1,83 @@
-/* MetShield operator console (P11). One file, light theme, system stack, one
-   accent. No animations: static bars and chips only. */
+/* MetShield operator console. Light theme, system stack, one accent
+   (#0050c8) plus a navy sidebar. No animations: static bars and chips only. */
 
-.shield-page {
+.shield-shell {
+  display: flex;
+  min-height: 100vh;
   font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
   background: #f4f6fa;
   color: #17202e;
-  min-height: 100vh;
+}
+
+/* Sidebar */
+
+.shield-sidebar {
+  width: 232px;
+  flex-shrink: 0;
+  background: #0a2540;
+  color: #dbe4f0;
+  display: flex;
+  flex-direction: column;
+  padding: 24px 16px;
+  gap: 28px;
+}
+
+.shield-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 8px;
+}
+
+.shield-brand-name {
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  font-size: 15px;
+  color: #ffffff;
+}
+
+.shield-nav {
+  list-style: none;
   margin: 0;
-  padding: 24px 32px 48px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.shield-nav-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  color: #dbe4f0;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.shield-nav-link:hover {
+  background: #14365c;
+  color: #ffffff;
+}
+
+.shield-sidebar-note {
+  margin-top: auto;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #8fa2bd;
+  padding: 16px 8px 0;
+  border-top: 1px solid #1c3c63;
+}
+
+/* Page */
+
+.shield-page {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 28px 36px 40px;
 }
 
 .shield-header {
@@ -16,13 +86,29 @@
   align-items: flex-start;
   gap: 24px;
   max-width: 1560px;
-  margin: 0 auto 24px;
+  margin: 0 auto 20px;
   flex-wrap: wrap;
 }
 
 .shield-header h1 {
-  font-size: 24px;
-  margin: 0 0 4px;
+  font-size: 30px;
+  margin: 0 0 6px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.shield-data-badge {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: #e4e9f1;
+  color: #3c4658;
+  border-radius: 6px;
+  padding: 4px 10px;
+  white-space: nowrap;
 }
 
 .shield-header-controls {
@@ -31,6 +117,68 @@
   align-items: center;
   flex-wrap: wrap;
 }
+
+/* Stat strip */
+
+.shield-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0;
+  max-width: 1560px;
+  margin: 0 auto 20px;
+  background: #ffffff;
+  border: 1px solid #dfe3ea;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.shield-stat {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 20px;
+  text-decoration: none;
+  color: inherit;
+  border-left: 1px solid #edf0f5;
+}
+
+.shield-stat:first-child {
+  border-left: none;
+}
+
+.shield-stat:hover {
+  background: #f7f9fc;
+}
+
+.shield-stat-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  background: #eef4ff;
+  color: #0050c8;
+  flex-shrink: 0;
+}
+
+.shield-stat-value {
+  font-size: 28px;
+  font-weight: 800;
+}
+
+.shield-stat-label {
+  color: #4d586e;
+  font-size: 14px;
+}
+
+.shield-stat-chevron {
+  margin-left: auto;
+  color: #9aa3b5;
+  font-size: 22px;
+}
+
+/* Columns */
 
 .shield-grid {
   display: grid;
@@ -41,10 +189,51 @@
   align-items: start;
 }
 
-@media (max-width: 1000px) {
+@media (max-width: 1100px) {
   .shield-grid {
     grid-template-columns: minmax(0, 1fr);
   }
+  .shield-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .shield-stat {
+    border-top: 1px solid #edf0f5;
+  }
+  .shield-stat:nth-child(-n + 2) {
+    border-top: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .shield-shell {
+    flex-direction: column;
+  }
+  .shield-sidebar {
+    width: auto;
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .shield-nav {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  .shield-sidebar-note {
+    display: none;
+  }
+  .shield-page {
+    padding: 20px 16px 32px;
+  }
+  .shield-stats {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.shield-third-column {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
 }
 
 .shield-panel {
@@ -55,10 +244,10 @@
 }
 
 .shield-panel h2 {
-  font-size: 16px;
+  font-size: 15px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: #4d586e;
+  color: #17202e;
   margin: 0 0 16px;
 }
 
@@ -68,9 +257,23 @@
 }
 
 .shield-panel h4 {
-  font-size: 14px;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
   margin: 18px 0 8px;
   color: #4d586e;
+}
+
+.shield-panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.shield-panel-head h2 {
+  margin: 0;
 }
 
 .shield-muted {
@@ -111,15 +314,6 @@
   cursor: not-allowed;
 }
 
-.shield-button-active {
-  color: #ffffff;
-  background: #0050c8;
-}
-
-.shield-button-active:hover {
-  background: #0043a8;
-}
-
 button:focus-visible,
 a:focus-visible {
   outline: 3px solid #0050c8;
@@ -147,10 +341,13 @@ a:focus-visible {
 }
 
 .shield-tier {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
   border-radius: 4px;
-  padding: 2px 8px;
+  padding: 3px 8px;
+  white-space: nowrap;
 }
 
 .shield-tier-context {
@@ -166,6 +363,11 @@ a:focus-visible {
 .shield-tier-confirmed {
   background: #fdecea;
   color: #8c1d18;
+}
+
+.shield-tier-none {
+  background: #eef1f6;
+  color: #4d586e;
 }
 
 .shield-severity {
@@ -197,6 +399,15 @@ a:focus-visible {
   padding: 0;
 }
 
+.shield-cite {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  flex-wrap: wrap;
+  border-bottom: 1px solid #eef1f6;
+  padding: 8px 0;
+}
+
 .shield-cluster,
 .shield-card {
   display: flex;
@@ -209,8 +420,8 @@ a:focus-visible {
   background: #ffffff;
   border: 1px solid #dfe3ea;
   border-radius: 8px;
-  padding: 10px 12px;
-  margin-bottom: 8px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
   cursor: pointer;
   color: inherit;
 }
@@ -224,6 +435,14 @@ a:focus-visible {
 .shield-card-selected {
   border-color: #0050c8;
   box-shadow: 0 0 0 1px #0050c8;
+}
+
+.shield-cluster-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
 }
 
 .shield-cluster-id,
@@ -248,13 +467,39 @@ a:focus-visible {
   border-radius: 0 6px 6px 0;
 }
 
-.shield-cite {
+/* Evidence timeline: one row per citation, newest first as returned. */
+
+.shield-timeline {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+}
+
+.shield-timeline-row {
+  display: grid;
+  grid-template-columns: 148px minmax(0, 1fr);
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid #eef1f6;
+}
+
+.shield-timeline-row:last-child {
+  border-bottom: none;
+}
+
+.shield-timeline-when {
+  font-size: 13px;
+}
+
+.shield-timeline-body {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   align-items: baseline;
   flex-wrap: wrap;
-  border-bottom: 1px solid #eef1f6;
-  padding: 8px 0;
+  background: #f7f9fc;
+  border: 1px solid #e7ebf2;
+  border-radius: 8px;
+  padding: 10px 12px;
 }
 
 .shield-cite-display {
@@ -266,6 +511,7 @@ a:focus-visible {
   display: flex;
   gap: 10px;
   align-items: baseline;
+  flex-wrap: wrap;
   color: #4d586e;
   border-bottom: 1px solid #eef1f6;
   padding: 6px 0;
@@ -288,25 +534,21 @@ a:focus-visible {
 }
 
 .shield-silent-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  display: flex;
   gap: 10px;
-  align-items: center;
-  padding: 4px 0;
+  align-items: baseline;
+  padding: 6px 0;
+  border-bottom: 1px solid #eef1f6;
 }
 
-.shield-silent-bar {
-  display: block;
-  height: 10px;
-  background: #eef1f6;
-  border-radius: 999px;
-  overflow: hidden;
+.shield-silent-row:last-child {
+  border-bottom: none;
 }
 
-.shield-silent-bar > span {
-  display: block;
-  height: 100%;
-  background: #0050c8;
+.shield-check {
+  color: #0050c8;
+  display: inline-flex;
+  align-self: center;
 }
 
 .shield-caption {
@@ -336,4 +578,14 @@ a:focus-visible {
 
 .shield-safe-action {
   font-weight: 600;
+}
+
+.shield-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  max-width: 1560px;
+  margin: 24px auto 0;
+  font-size: 13px;
 }

@@ -1,5 +1,6 @@
 import React from 'react';
 import type { ApiError, PipelineMetrics } from './api';
+import { CheckIcon } from './icons';
 
 export interface RestraintPanelProps {
   metrics: PipelineMetrics | null;
@@ -7,14 +8,16 @@ export interface RestraintPanelProps {
   error: ApiError | null;
 }
 
+// "What stayed silent" renders the actual silence ledger — every row is a
+// reason code with its count from /v1/metrics, never a generic reassurance.
+
 export default function RestraintPanel(props: RestraintPanelProps): React.JSX.Element {
   const { metrics, loading, error } = props;
   const silent = metrics === null ? [] : Object.entries(metrics.silentByReason).sort((a, b) => b[1] - a[1]);
   const silentTotal = silent.reduce((sum, [, count]) => sum + count, 0);
-  const peak = silent.length === 0 ? 0 : Math.max(...silent.map(([, count]) => count));
   return (
-    <section className="shield-panel" aria-label="Restraint">
-      <h2>Restraint</h2>
+    <section className="shield-panel" aria-label="What stayed silent">
+      <h2>What stayed silent</h2>
       {error ? (
         <p className="shield-error" role="alert">
           {error.code}
@@ -27,18 +30,19 @@ export default function RestraintPanel(props: RestraintPanelProps): React.JSX.El
             {metrics.eligibleEvents} eligible · {metrics.cards} emitted
           </p>
           <p data-testid="restraint-silent-line">No card emitted for {silentTotal} eligible events</p>
-          <h4>Silent by reason</h4>
           {silent.length === 0 ? (
             <p className="shield-muted">Nothing silent yet.</p>
           ) : (
             <ul className="shield-silent-list">
               {silent.map(([reason, count]) => (
                 <li key={reason} className="shield-silent-row">
-                  <span className="shield-mono">{reason}</span>
-                  <span className="shield-silent-bar" aria-hidden="true">
-                    <span style={{ width: peak === 0 ? '0%' : `${Math.round((count / peak) * 100)}%` }} />
+                  <span className="shield-check" aria-hidden="true">
+                    <CheckIcon size={16} />
                   </span>
-                  <span>{count}</span>
+                  <span className="shield-mono">{reason}</span>
+                  <span className="shield-muted">
+                    {count} event{count === 1 ? '' : 's'}
+                  </span>
                 </li>
               ))}
             </ul>

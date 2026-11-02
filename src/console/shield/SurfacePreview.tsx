@@ -27,8 +27,9 @@ export default function SurfacePreview(props: SurfacePreviewProps): React.JSX.El
   }, [card?.id]);
   const payload = card === null ? null : toSurfacePayload(card, nowMs);
   return (
-    <section className="shield-panel" aria-label="Surface preview">
-      <h2>Surface preview</h2>
+    <section className="shield-panel" aria-label="Surface preview" data-testid="surface-preview">
+      <h2>User-facing preview</h2>
+      <p className="shield-muted">Example rendering — host product controls final wording.</p>
       <p className="shield-caption">Preview of the payload a product renders under its own warning.</p>
       {error ? (
         <p className="shield-error" role="alert">

@@ -2,7 +2,9 @@ import React from 'react';
 import '../shield.css';
 import type { ApiError, Card, Cluster, PipelineMetrics } from './api';
 import type { CardDetailResponse } from './api';
-import { ApiError as ApiErrorValue, fetchCardDetail, fetchCardsPage, fetchClusters, fetchMetrics } from './api';
+import { ApiError as ApiErrorValue, fetchCardDetail, fetchCardsPage, fetchClusters, fetchHealth, fetchMetrics } from './api';
+import Sidebar from './Sidebar';
+import StatsRow from './StatsRow';
 import ClustersPanel from './ClustersPanel';
 import EvidencePanel from './EvidencePanel';
 import RestraintPanel from './RestraintPanel';
@@ -15,18 +17,16 @@ export interface ShieldPageProps {
   nowMs?: number;
 }
 
-type View = 'operator' | 'preview';
-
 function toApiError(reason: unknown): ApiError {
   return reason instanceof ApiErrorValue ? reason : new ApiErrorValue('network_error', 0);
 }
 
 export default function ShieldPage({ pollMs = 5000, nowMs }: ShieldPageProps): React.JSX.Element {
   const now = nowMs ?? Date.now();
-  const [view, setView] = React.useState<View>('operator');
   const [clusters, setClusters] = React.useState<Cluster[]>([]);
   const [cards, setCards] = React.useState<Card[]>([]);
   const [metrics, setMetrics] = React.useState<PipelineMetrics | null>(null);
+  const [version, setVersion] = React.useState<string | null>(null);
   const [clustersError, setClustersError] = React.useState<ApiError | null>(null);
   const [cardsError, setCardsError] = React.useState<ApiError | null>(null);
   const [metricsError, setMetricsError] = React.useState<ApiError | null>(null);
@@ -38,8 +38,8 @@ export default function ShieldPage({ pollMs = 5000, nowMs }: ShieldPageProps): R
   const [refreshKey, setRefreshKey] = React.useState(0);
 
   const loadAll = React.useCallback(async () => {
-    const settled = await Promise.allSettled([fetchClusters(), fetchCardsPage(), fetchMetrics()]);
-    const [clustersRes, cardsRes, metricsRes] = settled;
+    const settled = await Promise.allSettled([fetchClusters(), fetchCardsPage(), fetchMetrics(), fetchHealth()]);
+    const [clustersRes, cardsRes, metricsRes, healthRes] = settled;
     if (clustersRes.status === 'fulfilled') {
       setClusters(clustersRes.value);
       setClustersError(null);
@@ -62,6 +62,9 @@ export default function ShieldPage({ pollMs = 5000, nowMs }: ShieldPageProps): R
       setMetricsError(null);
     } else {
       setMetricsError(toApiError(metricsRes.reason));
+    }
+    if (healthRes.status === 'fulfilled') {
+      setVersion(healthRes.value.version);
     }
     setLoading(false);
   }, []);
@@ -108,7 +111,6 @@ export default function ShieldPage({ pollMs = 5000, nowMs }: ShieldPageProps): R
   const handleSelectCluster = (clusterId: string): void => {
     const match = cards.find((card) => card.clusterId === clusterId);
     if (match !== undefined) setSelectedId(match.id);
-    setView('operator');
   };
 
   const handleRefresh = (): void => {
@@ -117,40 +119,29 @@ export default function ShieldPage({ pollMs = 5000, nowMs }: ShieldPageProps): R
   };
 
   return (
-    <main className="shield-page">
-      <header className="shield-header">
-        <div>
-          <h1>MetShield Console</h1>
-          <p className="shield-muted">Demonstrated on synthetic and public data. Not integrated with any Meta product.</p>
-        </div>
-        <div className="shield-header-controls">
-          <div role="group" aria-label="View">
-            <button
-              type="button"
-              className={view === 'operator' ? 'shield-button shield-button-active' : 'shield-button'}
-              aria-pressed={view === 'operator'}
-              onClick={() => setView('operator')}
-            >
-              Operator
-            </button>{' '}
-            <button
-              type="button"
-              className={view === 'preview' ? 'shield-button shield-button-active' : 'shield-button'}
-              aria-pressed={view === 'preview'}
-              onClick={() => setView('preview')}
-            >
-              Surface preview
+    <div className="shield-shell">
+      <Sidebar />
+      <main className="shield-page">
+        <header className="shield-header">
+          <div>
+            <h1>
+              Signal review <span className="shield-data-badge">Synthetic / public data</span>
+            </h1>
+            <p className="shield-muted">
+              Investigate signals, review evidence, and apply <strong>restraint</strong>. Not affiliated with any Meta product.
+            </p>
+          </div>
+          <div className="shield-header-controls">
+            <button type="button" className="shield-button" onClick={handleRefresh}>
+              Refresh
             </button>
           </div>
-          <button type="button" className="shield-button" onClick={handleRefresh}>
-            Refresh
-          </button>
-        </div>
-      </header>
-      {view === 'operator' ? (
+        </header>
+        <StatsRow clusters={clusters} cards={cards} metrics={metrics} />
         <div className="shield-grid">
           <ClustersPanel
             clusters={clusters}
+            cards={cards}
             selectedClusterId={selectedClusterId}
             onSelectCluster={handleSelectCluster}
             loading={loading}
@@ -166,11 +157,18 @@ export default function ShieldPage({ pollMs = 5000, nowMs }: ShieldPageProps): R
             loading={loading || detailLoading}
             nowMs={now}
           />
-          <RestraintPanel metrics={metrics} loading={loading} error={metricsError} />
+          <div id="shield-restraint" className="shield-third-column">
+            <RestraintPanel metrics={metrics} loading={loading} error={metricsError} />
+            <SurfacePreview card={detail?.card ?? null} error={detailError} loading={loading || detailLoading} nowMs={now} />
+          </div>
         </div>
-      ) : (
-        <SurfacePreview card={detail?.card ?? null} error={detailError} loading={loading || detailLoading} nowMs={now} />
-      )}
-    </main>
+        <footer className="shield-footer">
+          <span className="shield-muted">Evidence first · Least-claim warning · Synthetic environment.</span>
+          <span className="shield-muted">
+            MetShield v{version ?? 'unknown'} · Synthetic and public data · Not affiliated with any Meta product.
+          </span>
+        </footer>
+      </main>
+    </div>
   );
 }
