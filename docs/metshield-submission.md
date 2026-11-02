@@ -45,11 +45,52 @@ Three properties carry the design:
    each report prints the silence with its reason code beside the cards.
 2. **Every claim is cited.** Each citation resolves deterministically to an
    observation on a surface other than the one being warned. The model names
-   indicator ids; code builds the citations; the validator checks them.
+   indicator ids; code builds the citations; the validator checks them. The
+   same rule covers copy slots: template values (counts, dates, feed names)
+   are recomputed from evidence before validation, because a live run showed
+   the model cannot know them — it wrote the surface name for the feed and
+   guessed the relative time.
 3. **Privacy is structural.** Observations cannot carry message text
    (`raw?: never` is a compile error); the model sees the correlation graph,
    never the conversation; `actorRef` is minted per submission, never a key,
    never copied into a cluster, card or log.
+
+## Where this hooks in (proposal, not integration)
+
+No integration with any Meta product exists; the surface preview in the console
+is a labelled rendering of the payload, not a hook. What exists is the contract
+(`observations in, cards out`) and this sketch of the three emitters that would
+feed it, each publishing metadata its surface already computes:
+
+1. **Ad review** — the ad platform already scans creatives and destination
+   links pre-flight. It emits link and creative observations (domains, handles,
+   file hashes) for ads that run.
+2. **Link-warning services** — WhatsApp and Messenger already check link
+   reputation to draw previews and link warnings. They emit domain observations
+   for links seen in chats, which is metadata already crossing the boundary
+   today, not new content access.
+3. **On-device classifiers** — WhatsApp's existing on-device Scam Alert already
+   computes signals on the device for non-contact chats. It emits opaque signal
+   observations (claim codes plus indicator metadata, never conversation text).
+
+The graph is therefore built from metadata surfaces already hold, and the card
+renders in the warning slot the product already owns. Inside Meta this is a
+plausible internal signal-sharing design; as an external product it would need
+these emitters to exist, which is why the submission claims a proposal, not a
+deployment.
+
+## Cognitive load (design hypothesis, not measured benefit)
+
+Short warning text under stress is a deliberate choice, and MetShield does not
+argue against it: the existing warning stays exactly as it is. The card renders
+*beneath* it, for the deliberation moment rather than the panic moment —
+verifying, reporting, showing a bank — with its own budgets (headline ≤ 90
+chars, body ≤ 320, one safe action, citations as chips, details one step away).
+The claim is narrower than "more evidence is better": a warning with no evidence
+cannot be argued with, verified, or repeated to a third party, and citations
+serve that reportability. No comprehension or usability data supports this yet;
+the falsifiable version — users report more often and decide better with cited
+cards — is future work, stated here so it is not mistaken for a result.
 
 ## How each Meta model is used, and why that model
 
@@ -71,8 +112,10 @@ read locally, and the extracted handle becomes the join key that makes
 cross-surface correlation possible. It is the localizer because the trust anchor
 of a scam ad is visual — printed onto the image, not in the caption — and
 because masks are verifiable in a way a chat model's reading of a picture is
-not. SAM localizes; it never judges. The request shape is assumed pending a
-first billed call, and the code says so where it matters.
+not. SAM localizes; it never judges. The request shape (POST
+`{base}/responses`, one noun phrase per call) and the grammar parse are
+verified by billed probe calls; mask payloads are kept opaque because raster
+decode is not implemented.
 
 No other AI provider is called at runtime, in development, or in tests. Only
 Meta models appear in the tree.
