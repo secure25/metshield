@@ -3,8 +3,8 @@ import type { ObservationSurface } from '../src/contract.js';
 import type { Cluster } from '../src/correlate.js';
 import type { Card, Citation } from '../src/cards.js';
 import { CARD_TEMPLATES_V1 } from '../src/copy/card.v1.js';
-import { CARD_SYSTEM_PROMPT } from '../src/models/prompts/card.v1.js';
-import { validateCard } from '../src/validate.js';
+import { CARD_SYSTEM_PROMPT } from '../src/models/prompts/card.v3.js';
+import { splitSentences, validateCard } from '../src/validate.js';
 
 const NOW = Date.parse('2026-06-10T12:00:00.000Z');
 const T1 = '2026-06-01T12:00:00.000Z';
@@ -395,6 +395,18 @@ describe('validate', () => {
         expect(literal, template.id).not.toMatch(/\d/);
       }
     }
+  });
+
+  it('splits sentences without fracturing dots inside fills', () => {
+    expect(splitSentences("Listed in blogspot.com's feed, published 0 minutes ago. That is all of it.")).toEqual([
+      "Listed in blogspot.com's feed, published 0 minutes ago.",
+      'That is all of it.'
+    ]);
+    expect(splitSentences("Listed in abuse.ch's feed. That is all of it.")).toEqual([
+      "Listed in abuse.ch's feed.",
+      'That is all of it.'
+    ]);
+    expect(splitSentences('No terminator here')).toEqual(['No terminator here']);
   });
 
   it('prompt and validator share the same copy', () => {

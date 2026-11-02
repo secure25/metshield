@@ -1,7 +1,7 @@
 import type { ObservationSurface } from './contract.js';
 import type { Card, CardTier, Citation, DroppedClaim, ValidationResult } from './cards.js';
 import type { Cluster } from './correlate.js';
-import { matchSentence } from './copy/card.v1.js';
+import { fillSlots, matchSentence } from './copy/card.v1.js';
 import { GUILT_TOKENS, URGENCY_TOKENS } from './validate.lexicon.js';
 
 // The validator (P5): deterministic tripwire between the model's proposal and
@@ -61,7 +61,14 @@ export function renderAgo(nowMs: number, iso: string): string {
 
 export function splitSentences(body: string): string[] {
   const out: string[] = [];
-  const re = /[^.!?]+[.!?]+/g;
+  // A terminator ends a sentence only at a real boundary: whitespace followed
+  // by an uppercase letter, a digit, or the end of the string. Dots inside fills (feed
+  // names like abuse.ch, model guesses like blogspot.com) must not fracture
+  // the sentence — a live run proved a naive split does exactly that, hiding
+  // template sentences from both the renderer and V11. The digit alternative
+  // is Template E's "{n} indicators" sentence start. A lowercase sentence
+  // start will not split; that malformed output fails V4a, correctly.
+  const re = /.+?[.!?]+(?=\s+[A-Z0-9]|\s*$)/gs;
   let match: RegExpExecArray | null;
   let last = 0;
   while ((match = re.exec(body)) !== null) {
@@ -278,6 +285,68 @@ function resolveCount(
   if (templateId === 'E' && slot === 'n') return ctx.cluster.indicatorIds.length;
   if (templateId === 'E' && slot === 'm') return ctx.cluster.surfaces.length;
   return null;
+}
+
+// Deterministic slot rendering: the model's template choice and citations
+// stand, but every slot value is recomputed from evidence. A live run proved
+// the model cannot know feed names, feed dates, or exact counts — it wrote
+// the surface name for the feed and guessed the relative time — so asking it
+// to fill slots is asking it to fail V4b/V8/V11. Unmatched sentences pass
+// through verbatim (V4a still bites on paraphrase); uncomputable slots also
+// pass through and fail downstream as before.
+function computeFills(templateId: string, ctx: SlotContext): Record<string, string> | null {
+  const fills: Record<string, string> = {};
+  if (templateId === 'F') {
+    const attribution = ctx.candidate.provenance.attribution;
+    if (attribution === undefined) return null;
+    fills['feedName'] = attribution.feedName;
+    fills['publishedAgo'] = renderAgo(ctx.nowMs, attribution.publishedAt);
+    return fills;
+  }
+  if (templateId === 'A') {
+    const family = ctx.cluster.tierInputs.families[0];
+    if (family === undefined) return null;
+    let surface: string | null = null;
+    let best = -1;
+    for (const candidate of ctx.cluster.surfaces) {
+      const count = ctx.cluster.perSurfaceCounts[candidate] ?? 0;
+      if (count > best) {
+        best = count;
+        surface = candidate;
+      }
+    }
+    if (surface === null || best <= 0) return null;
+    fills['family'] = family.replace(/_/g, ' ');
+    fills['surface'] = surface;
+    fills['n'] = String(best);
+    return fills;
+  }
+  if (templateId === 'B') {
+    let earliest: string | null = null;
+    for (const citation of ctx.candidate.citations) {
+      if (earliest === null || citation.observedAt < earliest) earliest = citation.observedAt;
+    }
+    if (earliest === null) return null;
+    fills['timeAgo'] = renderAgo(ctx.nowMs, earliest);
+    return fills;
+  }
+  if (templateId === 'C') {
+    fills['n'] = String(ctx.cluster.observationIds.length);
+    return fills;
+  }
+  return fills;
+}
+
+export function renderBodySlots(body: string, ctx: SlotContext): string {
+  return splitSentences(body)
+    .map((sentence) => {
+      const matched = matchSentence(sentence, 'body');
+      if (matched === null || matched.pattern === null) return sentence;
+      const fills = computeFills(matched.templateId, ctx);
+      if (fills === null) return sentence;
+      return fillSlots(matched.pattern, fills);
+    })
+    .join(' ');
 }
 
 export function checkV8(

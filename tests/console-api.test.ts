@@ -20,7 +20,9 @@ import { CARD_TEMPLATES_V1 } from '../src/copy/card.v1.js';
 // render: a confirmed card, a demoted card, a validator rejection, a model
 // decline, and an ineligible silence. Copy comes from the template table, not
 // from transcription — a drifted string would fail V4a loudly rather than
-// pass quietly.
+// pass quietly. The demoted card's scripted model both invents a count (which
+// buildCard corrects from evidence before validation, so no drop) and
+// paraphrases a sentence (which V4a drops, so V9 demotes).
 
 const NOW_MS = Date.parse('2026-06-10T12:00:00.000Z');
 const FEED_PUBLISHED_AT = '2026-06-05T12:00:00.000Z';
@@ -28,6 +30,10 @@ const FEED_URL = 'https://feeds.example/scam-urls.txt';
 const FEED_NAME = 'example-feed';
 
 const realFetch = globalThis.fetch.bind(globalThis);
+
+// Model prose that matches no template: no digits, no banned tokens, so the
+// only rule that can drop it is V4a.
+const A_S2_PARAPHRASE = 'This pattern may show up on other surfaces too.';
 
 function templateCopy(id: string, fills: Record<string, string>): { headline: string; body: string } {
   const template = CARD_TEMPLATES_V1.find((entry) => entry.id === id);
@@ -69,13 +75,16 @@ function scriptedPropose(): ProposeFn {
     }
     if (canonical === 'a.example') {
       const copy = templateCopy('A', { family: 'domain', n: '99', surface: 'facebook' });
+      const templateA = CARD_TEMPLATES_V1.find((entry) => entry.id === 'A');
+      if (templateA === undefined) throw new Error('no template A');
+      const honestS2 = templateA.body[1] ?? '';
       return {
         ok: true,
         data: {
           decision: 'emit',
           tier: 'corroborated',
           headline: copy.headline,
-          body: copy.body,
+          body: copy.body.replace(honestS2, A_S2_PARAPHRASE),
           safeAction: 'leave_and_report',
           citations: [domain.id, domain.id],
           declineReason: null,
@@ -287,9 +296,15 @@ describe('console api', () => {
     };
     expect(a.card.tier).toBe('context');
     expect(a.card.template).toBe('A');
-    expect(a.card.provenance.dropped).toEqual([{ rule: 'V8', text: '99', reason: 'slot n unresolved_numeral' }]);
-    const aS2 = CARD_TEMPLATES_V1.find((entry) => entry.id === 'A')?.body[1];
-    expect(a.card.body).toBe(aS2);
+    expect(a.card.provenance.dropped).toEqual([{ rule: 'V4a', text: A_S2_PARAPHRASE, reason: 'no_template_match' }]);
+    const aS1 = CARD_TEMPLATES_V1.find((entry) => entry.id === 'A')?.body[0]
+      ?.split('{family}')
+      .join('domain')
+      .split('{n}')
+      .join('1')
+      .split('{surface}')
+      .join('facebook');
+    expect(a.card.body).toBe(aS1);
     expect(a.proposal?.tier).toBe('corroborated');
     const missing = await realFetch(`${base}/v1/cards/CARD-999999`);
     expect(missing.status).toBe(404);

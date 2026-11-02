@@ -9,7 +9,7 @@ import type { StoredIndicator, StoredObservation } from '../src/store.js';
 import type { Proposal } from '../src/models/muse.js';
 import { buildCard, resolveCitations } from '../src/cards.js';
 import type { Card, FeedAttribution, ProposeFn } from '../src/cards.js';
-import { CARD_PROMPT_VERSION, CARD_SYSTEM_PROMPT } from '../src/models/prompts/card.v1.js';
+import { CARD_PROMPT_VERSION, CARD_SYSTEM_PROMPT } from '../src/models/prompts/card.v3.js';
 
 const NOW = Date.parse('2026-06-10T12:00:00.000Z');
 
@@ -294,7 +294,7 @@ describe('buildCard', () => {
     expect(emitted.provenance.proposedTier).toBe('context');
     expect(emitted.provenance.dropped).toEqual([]);
     expect(emitted.provenance.model).toBe('muse-spark-1.3-contributor');
-    expect(emitted.provenance.promptVersion).toBe('card.v1');
+    expect(emitted.provenance.promptVersion).toBe('card.v3');
     const lines = readCards(dir);
     expect(lines).toHaveLength(1);
     expect(lines[0]).toEqual(emitted);
@@ -390,6 +390,139 @@ describe('buildCard', () => {
       assertedClaim: 'listing'
     });
     expect(emitted.citations.map((c) => c.observationId)).toEqual(['obs-feed-1', 'obs-feed-2']);
+  });
+
+  it('re-renders feed slots from evidence instead of trusting model fills', async () => {
+    const feed1 = makeObs('obs-feed-1', 'public_feed', 'public_feed', '2026-06-05T12:00:00.000Z', false, 'public_source');
+    const feed2 = makeObs('obs-feed-2', 'public_feed', 'public_feed', '2026-06-06T12:00:00.000Z', false, 'public_source');
+    const sub = makeObs('obs-sub-1', 'user_submission', 'submission', '2026-06-09T12:00:00.000Z', false, 'user_submitted');
+    const d1 = makeDomain('IND-000001', 'evil.example', ['obs-feed-1', 'obs-sub-1']);
+    const d2 = makeDomain('IND-000002', 'evil2.example', ['obs-feed-2', 'obs-sub-1']);
+    const cluster = makeCluster({
+      id: 'CLU-000003',
+      indicatorIds: ['IND-000001', 'IND-000002'],
+      surfaces: ['public_feed', 'user_submission'],
+      observationIds: ['obs-feed-1', 'obs-feed-2', 'obs-sub-1'],
+      familyCount: 1,
+      claimCodes: ['public_blocklist'],
+      syntheticAll: false,
+      tierInputs: {
+        crossSurfacePairs: [['public_feed', 'user_submission']],
+        families: ['domain'],
+        hasConfirmedIndicator: true
+      }
+    });
+    const feedRecords = new Map<string, FeedAttribution>([
+      ['obs-feed-1', { feedName: 'example-feed', publishedAt: '2026-06-05T12:00:00.000Z', assertedClaim: 'listing' }],
+      ['obs-feed-2', { feedName: 'example-feed', publishedAt: '2026-06-06T12:00:00.000Z', assertedClaim: 'listing' }]
+    ]);
+    const dir = makeRunDir();
+    // The live model's exact failure: a dotted registrable for the feed name
+    // (which also fractures naive sentence splitting) and a guessed relative
+    // time. Both are unknowable from the cluster input, so buildCard
+    // recomputes them instead of failing the card.
+    const card = await buildCard(cluster, {
+      indicators: [d1, d2],
+      observations: [feed1, feed2, sub],
+      cardSurface: 'user_submission',
+      runDir: dir,
+      nowMs: NOW,
+      feedRecords,
+      propose: stubPropose(
+        emitProposal({
+          tier: 'confirmed',
+          headline: 'This link is on a public blocklist.',
+          body: "This domain is listed in blogspot.com's reported-scam feed, published 0 minutes ago. That listing is the whole of our evidence — we have not seen it in a conversation or in an ad, and a listing is a claim about the domain, not proof about every use of it.",
+          citations: ['IND-000001', 'IND-000002']
+        })
+      )
+    });
+    expect(card?.tier).toBe('confirmed');
+    expect((card as Card).body).toContain("listed in example-feed's reported-scam feed, published 5 days ago.");
+  });
+
+  it('emits when the feed name itself contains dots', async () => {
+    const feed1 = makeObs('obs-feed-1', 'public_feed', 'public_feed', '2026-06-05T12:00:00.000Z', false, 'public_source');
+    const sub = makeObs('obs-sub-1', 'user_submission', 'submission', '2026-06-09T12:00:00.000Z', false, 'user_submitted');
+    const d1 = makeDomain('IND-000001', 'evil.example', ['obs-feed-1', 'obs-sub-1']);
+    const cluster = makeCluster({
+      id: 'CLU-000003',
+      indicatorIds: ['IND-000001'],
+      surfaces: ['public_feed', 'user_submission'],
+      observationIds: ['obs-feed-1', 'obs-sub-1'],
+      familyCount: 1,
+      claimCodes: ['public_blocklist'],
+      syntheticAll: false,
+      tierInputs: {
+        crossSurfacePairs: [['public_feed', 'user_submission']],
+        families: ['domain'],
+        hasConfirmedIndicator: true
+      }
+    });
+    const feedRecords = new Map<string, FeedAttribution>([
+      ['obs-feed-1', { feedName: 'abuse.ch', publishedAt: '2026-06-05T12:00:00.000Z', assertedClaim: 'listing' }]
+    ]);
+    const dir = makeRunDir();
+    // Single indicator cited twice: the repeat-id mechanism both citations of
+    // the feed pair depend on.
+    const card = await buildCard(cluster, {
+      indicators: [d1],
+      observations: [feed1, sub],
+      cardSurface: 'messenger',
+      runDir: dir,
+      nowMs: NOW,
+      feedRecords,
+      propose: stubPropose(
+        emitProposal({
+          tier: 'confirmed',
+          headline: 'This link is on a public blocklist.',
+          body: "This domain is listed in abuse.ch's reported-scam feed, published 5 days ago. That listing is the whole of our evidence — we have not seen it in a conversation or in an ad, and a listing is a claim about the domain, not proof about every use of it.",
+          citations: ['IND-000001', 'IND-000001']
+        })
+      )
+    });
+    expect(card?.tier).toBe('confirmed');
+    expect((card as Card).citations).toHaveLength(2);
+    expect((card as Card).body).toContain("listed in abuse.ch's reported-scam feed, published 5 days ago.");
+  });
+
+  it('re-renders counts and surfaces in template A from cluster aggregates', async () => {
+    const fb1 = makeObs('obs-fb-1', 'facebook', 'world', '2026-06-01T12:00:00.000Z', true);
+    const fb2 = makeObs('obs-fb-2', 'facebook', 'world', '2026-06-01T13:00:00.000Z', true);
+    const m1 = makeObs('obs-m-1', 'messenger', 'world', '2026-06-01T14:00:00.000Z', true);
+    const domain = makeDomain('IND-000001', 'bills.example', ['obs-fb-1', 'obs-m-1']);
+    const handle = makeHandle('IND-000002', 'bright.cart', 'Bright.Cart', ['obs-fb-2', 'obs-m-1']);
+    const cluster = makeCluster({
+      id: 'CLU-000002',
+      indicatorIds: ['IND-000001', 'IND-000002'],
+      surfaces: ['facebook', 'messenger'],
+      observationIds: ['obs-fb-1', 'obs-fb-2', 'obs-m-1'],
+      familyCount: 2,
+      perSurfaceCounts: { facebook: 2, messenger: 1 },
+      tierInputs: {
+        crossSurfacePairs: [['facebook', 'messenger']],
+        families: ['domain', 'payment_handle'],
+        hasConfirmedIndicator: false
+      }
+    });
+    const dir = makeRunDir();
+    const card = await buildCard(cluster, {
+      indicators: [domain, handle],
+      observations: [fb1, fb2, m1],
+      cardSurface: 'messenger',
+      runDir: dir,
+      nowMs: NOW,
+      propose: stubPropose(
+        emitProposal({
+          tier: 'corroborated',
+          headline: "This request is linked to an ad you didn't see.",
+          body: "The handle in this chat also appeared in 9 whatsapp events we've linked to the same operation. The warning above already applies — this is why it may also be happening elsewhere.",
+          citations: ['IND-000001', 'IND-000002']
+        })
+      )
+    });
+    expect(card?.tier).toBe('corroborated');
+    expect((card as Card).body).toContain('The domain in this chat also appeared in 2 facebook events');
   });
 
   it('goes silent with no_resolvable_citations and writes no renderable output', async () => {
@@ -644,7 +777,7 @@ describe('buildCard', () => {
 
 describe('card prompt', () => {
   it('pins the version and the five templates', () => {
-    expect(CARD_PROMPT_VERSION).toBe('card.v1');
+    expect(CARD_PROMPT_VERSION).toBe('card.v3');
     for (const headline of [
       "This request is linked to an ad you didn't see.",
       'The link in this chat also ran as a paid ad.',
@@ -658,5 +791,10 @@ describe('card prompt', () => {
     expect(CARD_SYSTEM_PROMPT).toContain('silence');
     expect(CARD_SYSTEM_PROMPT).toContain('guilt');
     expect(CARD_SYSTEM_PROMPT).toContain('320');
+    // v2 teaches the feed-plus-submission decision the live model got wrong.
+    expect(CARD_SYSTEM_PROMPT).toContain('public_blocklist');
+    expect(CARD_SYSTEM_PROMPT).toContain('Tier table');
+    // v3 teaches the repeat-id citation the two-citation floor needs.
+    expect(CARD_SYSTEM_PROMPT).toContain('list that id twice');
   });
 });

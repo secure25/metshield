@@ -6,8 +6,8 @@ import type { StoredIndicator, StoredObservation } from './store.js';
 import type { CompletionResult } from './models/client.js';
 import { MUSE_DEFAULT_MODEL, proposeCard } from './models/muse.js';
 import type { Proposal } from './models/muse.js';
-import { CARD_PROMPT_VERSION } from './models/prompts/card.v1.js';
-import { validateCard } from './validate.js';
+import { CARD_PROMPT_VERSION } from './models/prompts/card.v3.js';
+import { renderBodySlots, validateCard } from './validate.js';
 
 // Card generation (P4): resolve the model's bare indicator ids against cluster
 // evidence (§5.3), build the candidate from the resolved citations only, attach
@@ -384,6 +384,11 @@ export async function buildCard(cluster: Cluster, deps: BuildCardDeps): Promise<
     expiresAt: new Date(nowMs + CARD_TTL_HOURS * 3600000).toISOString()
   };
 
+  // Slots are evidence, and evidence is computed: re-render every matched
+  // sentence from cluster facts before validation, so the validator checks
+  // true values rather than model guesses. Unmatched sentences pass through
+  // for V4a to drop as before.
+  candidate.body = renderBodySlots(candidate.body, { candidate, cluster, nowMs });
   const validate = deps.validate ?? validateCard;
   const verdict = validate(candidate, cluster, nowMs);
   const dropped = [...resolverDropped, ...verdict.dropped];

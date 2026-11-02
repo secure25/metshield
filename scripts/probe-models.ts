@@ -19,6 +19,7 @@
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { deflateSync } from 'node:zlib';
 import { z } from 'zod';
 import { completeJson } from '../src/models/client.js';
@@ -438,7 +439,12 @@ async function main(): Promise<void> {
   console.log(JSON.stringify({ event: 'probe_done', report: path.join('runs', 'model-probe.json'), answers: report.answers }));
 }
 
-main().catch((err: unknown) => {
-  console.error(JSON.stringify({ event: 'probe_failed', detail: err instanceof Error ? err.message : String(err) }));
-  process.exitCode = 1;
-});
+// Guarded: importing this module (unit tests import the pure helpers) must
+// not bill calls or set the process exit code.
+const probeEntryHref = process.argv[1] === undefined ? null : pathToFileURL(process.argv[1]).href;
+if (probeEntryHref !== null && probeEntryHref === import.meta.url) {
+  main().catch((err: unknown) => {
+    console.error(JSON.stringify({ event: 'probe_failed', detail: err instanceof Error ? err.message : String(err) }));
+    process.exitCode = 1;
+  });
+}

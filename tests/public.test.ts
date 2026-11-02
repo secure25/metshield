@@ -66,6 +66,50 @@ describe('feed connector', () => {
     vi.restoreAllMocks();
   });
 
+  it('forwards custom json keys so per-entry dates land in attribution', async () => {
+    const seen: Array<{ obs: Observation; publishedAt: string }> = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() =>
+        Promise.resolve({
+          ok: true,
+          status: 200,
+          text: () =>
+            Promise.resolve(
+              JSON.stringify({
+                urls: [
+                  { url: 'https://evil.example/a', dateadded: '2026-06-08T10:00:00.000Z' },
+                  { url: 'https://other.example/b', dateadded: '2026-06-09T10:00:00.000Z' }
+                ]
+              })
+            )
+        })
+      )
+    );
+    const reader = startFeed({
+      name: FEED_NAME,
+      url: FEED_URL,
+      format: 'json',
+      pollMs: 60000,
+      path: 'urls',
+      publishedKey: 'dateadded',
+      assertedClaim: 'listing',
+      now: () => NOW,
+      onObservation: (obs, meta) => {
+        seen.push({ obs, publishedAt: meta.publishedAt });
+      }
+    });
+    try {
+      await reader.poll();
+      expect(seen).toHaveLength(2);
+      expect(seen[0]).toMatchObject({ publishedAt: '2026-06-08T10:00:00.000Z' });
+      expect(seen[0].obs.id).toBe('feed:example-feed:evil.example');
+      expect(seen[1]).toMatchObject({ publishedAt: '2026-06-09T10:00:00.000Z' });
+    } finally {
+      reader.stop();
+    }
+  });
+
   it('ingests a newline list with shape, codes and attribution', async () => {
     const seen: Array<{ obs: Observation; feedName: string; publishedAt: string; assertedClaim: string }> = [];
     vi.stubGlobal(

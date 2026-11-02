@@ -3,7 +3,7 @@ import { completeJson } from './client.js';
 import type { CompletionResult } from './client.js';
 import type { Cluster } from '../correlate.js';
 import type { StoredIndicator } from '../store.js';
-import { CARD_SYSTEM_PROMPT } from './prompts/card.v1.js';
+import { CARD_SYSTEM_PROMPT } from './prompts/card.v3.js';
 
 export const PROPOSAL_SCHEMA = z.object({
   decision: z.enum(['emit', 'decline']),
@@ -37,7 +37,7 @@ const DEFAULT_REASONING_EFFORT = 'minimal';
 const DEFAULT_TIMEOUT_MS = 90000;
 const SCHEMA_NAME = 'card_proposal';
 
-// System prompt lives in prompts/card.v1.ts (versioned; the version is
+// System prompt lives in prompts/card.v3.ts (versioned; the version is
 // recorded on every card). muse.ts only selects it, never edits copy.
 
 function serializeCluster(cluster: Cluster, indicators: StoredIndicator[]): string {

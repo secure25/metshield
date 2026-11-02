@@ -65,6 +65,12 @@ export const CARD_TEMPLATES_V1: CardTemplate[] = [
 export interface TemplateMatch {
   templateId: string;
   fills: Record<string, string>;
+  /** The body pattern that matched, for deterministic re-rendering. */
+  pattern: string | null;
+}
+
+export function fillSlots(pattern: string, fills: Record<string, string>): string {
+  return pattern.replace(/\{(\w+)\}/g, (slot, key: string) => fills[key] ?? slot);
 }
 
 function matchPattern(pattern: string, text: string): Record<string, string> | null {
@@ -92,11 +98,11 @@ function matchPattern(pattern: string, text: string): Record<string, string> | n
 export function matchSentence(text: string, kind: 'headline' | 'body'): TemplateMatch | null {
   for (const template of CARD_TEMPLATES_V1) {
     if (kind === 'headline') {
-      if (text === template.headline) return { templateId: template.id, fills: {} };
+      if (text === template.headline) return { templateId: template.id, fills: {}, pattern: null };
     } else {
       for (const sentence of template.body) {
         const fills = matchPattern(sentence, text);
-        if (fills !== null) return { templateId: template.id, fills };
+        if (fills !== null) return { templateId: template.id, fills, pattern: sentence };
       }
     }
   }

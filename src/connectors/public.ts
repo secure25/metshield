@@ -79,6 +79,10 @@ export interface FeedOptions {
   /** Defaults: extractLines, or extractJson with path below. Custom extractors own their schema. */
   extractor?: (body: string) => FeedEntry[];
   path?: string;
+  /** Entry-object key holding the URL. Default 'url'. */
+  urlKey?: string;
+  /** Entry-object key holding a per-entry publication time. Default 'publishedAt'. */
+  publishedKey?: string;
   assertedClaim: FeedAttribution['assertedClaim'];
   /** Config-declared publication time when entries carry none; else fetch time. */
   publishedAt?: string;
@@ -104,7 +108,10 @@ export interface FeedReader {
 
 export function startFeed(options: FeedOptions): FeedReader {
   const extractor =
-    options.extractor ?? (options.format === 'lines' ? extractLines : (body: string) => extractJson(body, { path: options.path }));
+    options.extractor ??
+    (options.format === 'lines'
+      ? extractLines
+      : (body: string) => extractJson(body, { path: options.path, urlKey: options.urlKey, publishedKey: options.publishedKey }));
   const seenCap = options.seenCap ?? Number.POSITIVE_INFINITY;
   const seen = new Set<string>();
   const health: FeedHealth = { name: options.name, lastPollAt: null, items: 0, errors: 0 };
