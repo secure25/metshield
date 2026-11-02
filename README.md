@@ -88,6 +88,18 @@ npm run demo:world   # fixed world scenario → runs/demo-world-42/report.md
 npm run demo:public  # fixed public scenario, no fixture → runs/demo-public-42/report.md
 ```
 
+## Reproduce the demo
+
+Every number in the submission video regenerates locally. Only the
+starred row needs a key (see `.env.example`); the rest run keyless.
+
+| Video beat | Command | Expected |
+|---|---|---|
+| The link (clusters) | `npm run demo:world` | 8006 observations, 30 clusters, 3 cards |
+| The card + proof (live) | `npm run live:public -- <two feed-listed domains>`* | 2 `confirmed` cards, 0 synthetic observations |
+| The decline | `npm run live:public -- notlisted-x.example` | `card: null`, `ineligible_cluster` |
+| The validator refusal | `npm run demo:world`, then read `runs/demo-world-42/cards.jsonl` | declined lines with `V11`/`V2` rule ids |
+
 Environment (all optional except for live model calls):
 
 | Variable | Purpose |
