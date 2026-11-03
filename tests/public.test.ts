@@ -222,6 +222,38 @@ describe('feed connector', () => {
       reader.stop();
     }
   });
+
+  it('stops delivering at maxItems and reports a head sample', async () => {
+    let deliveries = 0;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() =>
+        Promise.resolve({
+          ok: true,
+          status: 200,
+          text: () => Promise.resolve('https://a.example/\nhttps://b.example/\nhttps://c.example/\nhttps://d.example/\n')
+        })
+      )
+    );
+    const reader = startFeed({
+      name: FEED_NAME,
+      url: FEED_URL,
+      format: 'lines',
+      pollMs: 60000,
+      assertedClaim: 'listing',
+      maxItems: 2,
+      onObservation: () => {
+        deliveries += 1;
+      }
+    });
+    try {
+      await reader.poll();
+      expect(deliveries).toBe(2);
+      expect(reader.getHealth()).toMatchObject({ items: 2, errors: 0 });
+    } finally {
+      reader.stop();
+    }
+  });
 });
 
 function fBody(): string {

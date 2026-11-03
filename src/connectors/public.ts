@@ -90,6 +90,13 @@ export interface FeedOptions {
   now?: () => number;
   /** Canonical-domain dedupe cap; default unbounded (feeds are small). */
   seenCap?: number;
+  /**
+   * Head-sample cap: stop delivering after this many items in a poll.
+   * Unset means unbounded. The fetch still pulls the whole list; only
+   * processing stops, so health.items counts processed entries and a capped
+   * poll must be disclosed as a head sample, never as the full feed.
+   */
+  maxItems?: number;
 }
 
 export interface FeedHealth {
@@ -169,6 +176,7 @@ export function startFeed(options: FeedOptions): FeedReader {
           publishedAt: entry.publishedAt ?? options.publishedAt ?? at,
           assertedClaim: options.assertedClaim
         });
+        if (options.maxItems !== undefined && health.items >= options.maxItems) break;
       }
       health.lastPollAt = at;
     } catch {

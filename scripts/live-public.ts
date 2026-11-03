@@ -87,6 +87,11 @@ async function main(): Promise<void> {
   if (claim !== 'listing' && claim !== 'live_phishing' && claim !== 'takedown') {
     throw new Error(`LIVE_FEED_CLAIM must be listing, live_phishing or takedown, got ${claim}`);
   }
+  const maxItemsRaw = feedEnv('LIVE_FEED_MAX_ITEMS', '');
+  const maxItems = maxItemsRaw === '' ? undefined : Number.parseInt(maxItemsRaw, 10);
+  if (maxItems !== undefined && (!Number.isInteger(maxItems) || maxItems <= 0)) {
+    throw new Error(`LIVE_FEED_MAX_ITEMS must be a positive integer, got ${maxItemsRaw}`);
+  }
   const args = parseLiveArgs(process.argv.slice(2));
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
   const runId = `live-public-${stamp}`;
@@ -104,6 +109,7 @@ async function main(): Promise<void> {
     urlKey: feedEnv('LIVE_FEED_URL_KEY', 'url'),
     publishedKey: feedEnv('LIVE_FEED_PUBLISHED_KEY', 'dateadded'),
     assertedClaim: claim as FeedAttribution['assertedClaim'],
+    ...(maxItems === undefined ? {} : { maxItems }),
     onObservation: (obs, meta) => {
       if (sample.length < 5) {
         const prefix = `feed:${feedName}:`;
@@ -119,6 +125,11 @@ async function main(): Promise<void> {
   }
   const health = reader.getHealth();
   console.log(JSON.stringify({ event: 'live_feed', feed: feedName, items: health.items, errors: health.errors }));
+  if (maxItems !== undefined) {
+    console.log(
+      JSON.stringify({ event: 'live_feed_cap', maxItems, note: 'head sample for take latency; full list fetched live' })
+    );
+  }
   if (sample.length > 0) {
     console.log(JSON.stringify({ event: 'live_feed_sample', domains: sample }));
   }
