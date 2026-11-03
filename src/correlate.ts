@@ -194,6 +194,13 @@ export class Correlator {
     return [...this.byRoot.values()].map(snapshot).sort((a, b) => (a.id < b.id ? -1 : 1));
   }
 
+  /** O(1) live cluster count. ingest() metrics use this; the full snapshot
+   * above is O(clusters) per call and must never run per observation — at
+   * feed scale that is quadratic ingest. */
+  count(): number {
+    return this.byRoot.size;
+  }
+
   private freshCluster(): MutableCluster {
     this.seq += 1;
     return {

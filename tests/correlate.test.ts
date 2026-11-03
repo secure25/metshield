@@ -83,4 +83,18 @@ describe('correlate', () => {
     c.ingest(evt('obs-a', { indicators: [X], claimCodes: ['public_blocklist'] }));
     expect(c.clusters()[0].tierInputs.hasConfirmedIndicator).toBe(true);
   });
+
+  it('count tracks creations and merges without snapshotting', () => {
+    const c = new Correlator();
+    expect(c.count()).toBe(0);
+    c.ingest(evt('obs-a', { surface: 'facebook', indicators: [X] }));
+    expect(c.count()).toBe(1);
+    c.ingest(evt('obs-b', { surface: 'messenger', indicators: [Y] }));
+    expect(c.count()).toBe(2);
+    c.ingest(evt('obs-c', { surface: 'whatsapp', indicators: [X, Y] }));
+    expect(c.count()).toBe(1);
+    c.ingest(evt('obs-d', { indicators: [] }));
+    expect(c.count()).toBe(1);
+    expect(c.count()).toBe(c.clusters().length);
+  });
 });

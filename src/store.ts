@@ -177,6 +177,10 @@ export class Store {
     return this.correlator.clusters();
   }
 
+  getClusterCount(): number {
+    return this.correlator.count();
+  }
+
   sweepExpired(nowMs?: number): string[] {
     const now = nowMs ?? this.now();
     const expired: string[] = [];

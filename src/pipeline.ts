@@ -126,7 +126,7 @@ export class Pipeline {
     this.metrics.observations.total += 1;
     if (obs.synthetic) this.metrics.observations.synthetic += 1;
     this.metrics.observations.bySource[obs.source] += 1;
-    this.metrics.clusters = this.store.getClusters().length;
+    this.metrics.clusters = this.store.getClusterCount();
     return { accepted: true, duplicate: false, joinedClusters: result.joinedClusters };
   }
 
