@@ -3,7 +3,7 @@
 // pipeline (model calls billed), and prints per-submission outcomes plus the
 // metrics block. runs/live-public-*/ keeps the JSONL.
 //
-//   LIVE_FEED_URL=https://urlhaus.abuse.ch/downloads/json_recent/ \
+//   LIVE_FEED_URL=https://raw.githubusercontent.com/Phishing-Database/Phishing.Database/refs/heads/master/phishing-domains-ACTIVE.txt \
 //   npm run live:public -- evil.example https://other.example/x \
 //     --creative ./ad.png --surface messenger
 //
@@ -14,11 +14,14 @@
 //   are required: this script refuses to run scripted, because a "public
 //   test" on a stand-in proposer would prove nothing.
 //
-// Before first use, confirm the feed's terms permit this use. URLhaus
-// (abuse.ch) permits non-commercial use with attribution; attribution is
-// automatic — every feed-built card carries the feed name (template F).
-// Constraints hold here as in production: URLs and domains only, page bodies
-// never fetched, DNS never resolved, no personal data enters the store.
+// Before first use, confirm the feed's terms permit this use. The default
+// feed (Phishing.Database phishing-domains-ACTIVE, MIT-licensed, vintage
+// Oct 2026, PyFunceble-tested) explicitly invites tool and product use, and
+// attribution is automatic — every feed-built card carries the feed name
+// (template F). Claim 'listing' is the honest strength for a community
+// list, not live-verified phishing. Constraints hold here as in
+// production: URLs and domains only, page bodies never fetched, DNS never
+// resolved, no personal data enters the store.
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -90,7 +93,7 @@ async function main(): Promise<void> {
   const root = path.resolve('runs');
   const pipeline = new Pipeline({ root, runId });
 
-  const feedName = feedEnv('LIVE_FEED_NAME', 'urlhaus');
+  const feedName = feedEnv('LIVE_FEED_NAME', 'phishing-database');
   const sample: string[] = [];
   const reader = startFeed({
     name: feedName,
