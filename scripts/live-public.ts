@@ -68,48 +68,79 @@ export function parseLiveArgs(argv: string[]): LiveArgs {
   return { values, creatives, surface };
 }
 
-function feedEnv(name: string, fallback: string): string {
-  const value = process.env[name];
-  return value === undefined || value.length === 0 ? fallback : value;
+export interface FeedConfig {
+  url: string;
+  name: string;
+  format: 'lines' | 'json';
+  path: string;
+  urlKey: string;
+  publishedKey: string;
+  claim: FeedAttribution['assertedClaim'];
+  maxItems?: number;
+  publishedAt?: string;
 }
 
-async function main(): Promise<void> {
-  const feedUrl = process.env.LIVE_FEED_URL;
-  if (feedUrl === undefined || feedUrl.length === 0) {
-    throw new Error('LIVE_FEED_URL must be set to a public feed URL (confirm its terms first)');
-  }
-  if (!process.env.METASHIELD_BASE_URL || !process.env.METASHIELD_API_KEY) {
+// Pure env parsing so tests pin every default and error without polling a
+// feed or billing a call. LIVE_FEED_PUBLISHED_AT declares the list's own
+// vintage (bot commit date) for feeds whose entries carry no dates; unset
+// means retrieval time, which the evidence doc must then state plainly.
+export function resolveFeedConfig(env: Record<string, string | undefined>): FeedConfig {
+  const pick = (value: string | undefined, fallback: string): string =>
+    value === undefined || value === '' ? fallback : value;
+  const url = pick(env.LIVE_FEED_URL, '');
+  if (url === '') throw new Error('LIVE_FEED_URL must be set to a public feed URL (confirm its terms first)');
+  if (!env.METASHIELD_BASE_URL || !env.METASHIELD_API_KEY) {
     throw new Error('METASHIELD_BASE_URL and METASHIELD_API_KEY must be set: this script uses the real proposer only');
   }
-  const format = feedEnv('LIVE_FEED_FORMAT', 'json');
+  const format = pick(env.LIVE_FEED_FORMAT, 'json');
   if (format !== 'lines' && format !== 'json') throw new Error(`LIVE_FEED_FORMAT must be lines or json, got ${format}`);
-  const claim = feedEnv('LIVE_FEED_CLAIM', 'listing');
+  const claim = pick(env.LIVE_FEED_CLAIM, 'listing');
   if (claim !== 'listing' && claim !== 'live_phishing' && claim !== 'takedown') {
     throw new Error(`LIVE_FEED_CLAIM must be listing, live_phishing or takedown, got ${claim}`);
   }
-  const maxItemsRaw = feedEnv('LIVE_FEED_MAX_ITEMS', '');
+  const maxItemsRaw = pick(env.LIVE_FEED_MAX_ITEMS, '');
   const maxItems = maxItemsRaw === '' ? undefined : Number.parseInt(maxItemsRaw, 10);
   if (maxItems !== undefined && (!Number.isInteger(maxItems) || maxItems <= 0)) {
     throw new Error(`LIVE_FEED_MAX_ITEMS must be a positive integer, got ${maxItemsRaw}`);
   }
+  const publishedAt = pick(env.LIVE_FEED_PUBLISHED_AT, '');
+  if (publishedAt !== '' && Number.isNaN(Date.parse(publishedAt))) {
+    throw new Error(`LIVE_FEED_PUBLISHED_AT must be an ISO date, got ${publishedAt}`);
+  }
+  return {
+    url,
+    name: pick(env.LIVE_FEED_NAME, 'phishing-database'),
+    format,
+    path: pick(env.LIVE_FEED_PATH, 'urls'),
+    urlKey: pick(env.LIVE_FEED_URL_KEY, 'url'),
+    publishedKey: pick(env.LIVE_FEED_PUBLISHED_KEY, 'dateadded'),
+    claim,
+    ...(maxItems === undefined ? {} : { maxItems }),
+    ...(publishedAt === '' ? {} : { publishedAt })
+  };
+}
+
+async function main(): Promise<void> {
+  const cfg = resolveFeedConfig(process.env);
   const args = parseLiveArgs(process.argv.slice(2));
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
   const runId = `live-public-${stamp}`;
   const root = path.resolve('runs');
   const pipeline = new Pipeline({ root, runId });
 
-  const feedName = feedEnv('LIVE_FEED_NAME', 'phishing-database');
+  const feedName = cfg.name;
   const sample: string[] = [];
   const reader = startFeed({
-    name: feedName,
-    url: feedUrl,
-    format,
+    name: cfg.name,
+    url: cfg.url,
+    format: cfg.format,
     pollMs: 60000,
-    path: feedEnv('LIVE_FEED_PATH', 'urls'),
-    urlKey: feedEnv('LIVE_FEED_URL_KEY', 'url'),
-    publishedKey: feedEnv('LIVE_FEED_PUBLISHED_KEY', 'dateadded'),
-    assertedClaim: claim as FeedAttribution['assertedClaim'],
-    ...(maxItems === undefined ? {} : { maxItems }),
+    path: cfg.path,
+    urlKey: cfg.urlKey,
+    publishedKey: cfg.publishedKey,
+    assertedClaim: cfg.claim,
+    ...(cfg.maxItems === undefined ? {} : { maxItems: cfg.maxItems }),
+    ...(cfg.publishedAt === undefined ? {} : { publishedAt: cfg.publishedAt }),
     onObservation: (obs, meta) => {
       if (sample.length < 5) {
         const prefix = `feed:${feedName}:`;
@@ -125,9 +156,13 @@ async function main(): Promise<void> {
   }
   const health = reader.getHealth();
   console.log(JSON.stringify({ event: 'live_feed', feed: feedName, items: health.items, errors: health.errors }));
-  if (maxItems !== undefined) {
+  if (cfg.maxItems !== undefined) {
     console.log(
-      JSON.stringify({ event: 'live_feed_cap', maxItems, note: 'head sample for take latency; full list fetched live' })
+      JSON.stringify({
+        event: 'live_feed_cap',
+        maxItems: cfg.maxItems,
+        note: 'head sample for take latency; full list fetched live'
+      })
     );
   }
   if (sample.length > 0) {
