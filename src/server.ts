@@ -6,6 +6,7 @@ import { getHealth } from './health.js';
 import { Pipeline } from './pipeline.js';
 import type { ObservationSurface } from './contract.js';
 import { parseMultipartImage, submitCreativeSubmission, submitLinkSubmission } from './connectors/submit.js';
+import { startWorldReader } from './connectors/world.js';
 
 const PORT: number = process.env.PORT ? Number(process.env.PORT) : 5173;
 
@@ -161,6 +162,25 @@ try {
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const isProd = process.env.NODE_ENV === 'production';
 
+export interface WorldReaderConfig {
+  baseUrl: string;
+  intervalMs: number;
+}
+
+// Env-gated world ingest: unset WORLD_BASE_URL (the default) keeps the
+// product pipeline fed only by submissions, preserving the boundary test and
+// every existing test's behavior; set it (loopback for the bundled fixture)
+// and boot starts the P7 reader into the live pipeline. Pure so tests pin the
+// switch without polling. Cards still build only on submissions — ingest
+// records evidence, it never spends model calls by itself.
+export function resolveWorldReaderConfig(env: Record<string, string | undefined>): WorldReaderConfig | null {
+  const baseUrl = env.WORLD_BASE_URL;
+  if (baseUrl === undefined || baseUrl === '') return null;
+  const raw = env.WORLD_POLL_MS;
+  const parsed = raw === undefined || raw === '' ? NaN : Number.parseInt(raw, 10);
+  return { baseUrl, intervalMs: Number.isInteger(parsed) && parsed > 0 ? parsed : 5000 };
+}
+
 async function start(): Promise<void> {
   if (!isProd) {
     const { createServer } = await import('vite');
@@ -176,6 +196,19 @@ async function start(): Promise<void> {
   app.listen(PORT, () => {
     console.log(`metshield dev server on http://localhost:${PORT}`);
   });
+  const worldReader = resolveWorldReaderConfig(process.env);
+  if (worldReader !== null) {
+    startWorldReader({
+      baseUrl: worldReader.baseUrl,
+      intervalMs: worldReader.intervalMs,
+      onObservation: (observation) => {
+        pipeline.ingest(observation);
+      }
+    });
+    console.log(
+      JSON.stringify({ event: 'world_reader', baseUrl: worldReader.baseUrl, intervalMs: worldReader.intervalMs })
+    );
+  }
 }
 
 // Only listen when executed directly: importing the app (tests, tooling)
