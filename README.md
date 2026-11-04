@@ -22,7 +22,7 @@ this package is submitted, and the product starts and serves its API with the
 fixture removed.
 
 Everything in this repository was written during the Meta Global AI Developer
-Hackathon (Oct 26 – Nov 4, 2026): all 46 commits, one author, no pre-existing
+Hackathon (Oct 26 – Nov 4, 2026): all 49 commits, one author, no pre-existing
 code. Provenance details and verification commands are in
 [docs/metshield-submission.md](docs/metshield-submission.md#what-was-built-during-the-hackathon).
 
@@ -113,10 +113,14 @@ Environment (all optional except for live model calls):
 | `METASHIELD_LOCALIZER` | localizer model id (default `sam-3.1`) |
 | `METASHIELD_RUN_DIR` | run output directory (default `./runs`) |
 | `PORT` | server port (default `5173`) |
+| `WORLD_BASE_URL` / `WORLD_POLL_MS` | Living-World ingest at boot (e.g. `http://127.0.0.1:5173`, `5000`); unset = off |
+| `LIVE_FEED_URL` (+ `LIVE_FEED_NAME/FORMAT/CLAIM/MAX_ITEMS/PUBLISHED_AT`) | public feed ingest at boot and for `live:public`; unset = off (see `.env.example`) |
 
 With nothing set, the service starts, serves `/v1/*`, and accepts submissions;
-model calls fail closed to coded declines. The demos use a scripted,
-deterministic proposer and are labelled as such in every report.
+card building without model vars answers `pipeline_error` (HTTP 500) rather
+than a coded decline (known gap — see Limitations); configured model failures
+decline with codes. The demos use a scripted, deterministic proposer and are
+labelled as such in every report.
 
 ## Meta models
 

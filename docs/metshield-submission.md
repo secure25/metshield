@@ -3,17 +3,17 @@
 ## What was built during the hackathon
 
 Everything in this repository was written during the Meta Global AI Developer
-Hackathon window (2026-10-26 – 2026-11-04): all 46 commits, one author, dated
-2026-10-26 → 2026-11-03, with no pre-existing code, no vendored third-party
+Hackathon window (2026-10-26 – 2026-11-04): all 49 commits, one author, dated
+2026-10-26 → 2026-11-04, with no pre-existing code, no vendored third-party
 code, and no model weights. Verify with
 `git log --format='%h %ad %an %s' --date=short`.
 
 - The opening commit (`55b41c4`, "Import the living world… (W0–W2)") holds the
   scaffold plus Living-World phases W0–W2 only — no product code, zero `/v1/`
   routes at that commit. Every product phase (P0–P13), the model probe, the
-  live verification, and the console redesign arrived in the commits after
-  it, so "import" reads as what it is: day-one fixture work, not
-  pre-existing product.
+  live verification, the console redesign, the boot wiring, and the dev feed
+  ingest arrived in the commits after it, so "import" reads as what it is:
+  day-one fixture work, not pre-existing product.
 - The Living World (`src/world/`) is a synthetic test fixture, not the
   product: every observation it emits carries `synthetic: true`, the product
   starts and serves `/v1/*` with `src/world/` removed, and tests enforce both
@@ -180,3 +180,9 @@ Verbatim from `src/honesty.ts`, rendered in every run report:
 - No real Meta integration: MetShield has not been built into Facebook, Messenger, or WhatsApp; it is a proposed layer demonstrated on synthetic and public data.
 - No prevalence estimate: nothing here estimates scam prevalence or detector precision/recall; the run contains no ground-truth labels by design.
 - Validator thresholds not tuned on real data: citation counts, tiers, and time windows were set by judgment against synthetic scenarios, not fitted to real-world measurements.
+
+Observed during live verification (2026-11-04), not in run reports:
+
+- Dotted handles submitted as links route to the domain family and cannot meet world payment_handle indicators (the classifier orders dots before handles); world handles match only through the creative path.
+- An unconfigured model answers HTTP 500 (`pipeline_error`), not a coded decline: the decline-only fallback is not implemented on the server path.
+- Live world-sourced cards expire before they cite: world observations carry January sim timestamps against real-clock TTLs, so the resolver skips the world citation and the validator refuses (V2+V11). World runs demonstrate clusters and restraint; cards on dev come from the feed path.
