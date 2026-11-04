@@ -7,6 +7,7 @@ import { Pipeline } from './pipeline.js';
 import type { ObservationSurface } from './contract.js';
 import { parseMultipartImage, submitCreativeSubmission, submitLinkSubmission } from './connectors/submit.js';
 import { startWorldReader } from './connectors/world.js';
+import { startFeed } from './connectors/public.js';
 
 const PORT: number = process.env.PORT ? Number(process.env.PORT) : 5173;
 
@@ -181,6 +182,58 @@ export function resolveWorldReaderConfig(env: Record<string, string | undefined>
   return { baseUrl, intervalMs: Number.isInteger(parsed) && parsed > 0 ? parsed : 5000 };
 }
 
+// Feed re-poll cadence: the spec's 10-minute timer. No env override —
+// re-poll timing is not filming-relevant, and the first poll fires at boot.
+const FEED_POLL_MS = 600000;
+
+export interface FeedReaderConfig {
+  url: string;
+  name: string;
+  format: 'lines' | 'json';
+  path: string;
+  urlKey: string;
+  publishedKey: string;
+  claim: 'listing' | 'live_phishing' | 'takedown';
+  maxItems?: number;
+  publishedAt?: string;
+}
+
+// Env-gated feed ingest: unset LIVE_FEED_URL (the default) keeps the product
+// pipeline fed only by submissions and the world reader, preserving the
+// boundary test and every existing test's behavior; set it and boot starts
+// the P8 reader into the live pipeline. Never throws: bad values fall back
+// to the same defaults scripts/live-public.ts documents, so a typo degrades
+// to an empty feed (visible as public_feed 0 in metrics) rather than killing
+// dev. Deliberately NOT shared with that script's resolver, which requires a
+// model key — keyless dev must still boot and ingest model-free.
+export function resolveFeedReaderConfig(env: Record<string, string | undefined>): FeedReaderConfig | null {
+  const url = env.LIVE_FEED_URL;
+  if (url === undefined || url === '') return null;
+  const pick = (value: string | undefined, fallback: string): string =>
+    value === undefined || value === '' ? fallback : value;
+  const formatRaw = pick(env.LIVE_FEED_FORMAT, 'json');
+  const format: 'lines' | 'json' = formatRaw === 'lines' || formatRaw === 'json' ? formatRaw : 'json';
+  const claimRaw = pick(env.LIVE_FEED_CLAIM, 'listing');
+  const claim: 'listing' | 'live_phishing' | 'takedown' =
+    claimRaw === 'listing' || claimRaw === 'live_phishing' || claimRaw === 'takedown' ? claimRaw : 'listing';
+  const maxItemsRaw = pick(env.LIVE_FEED_MAX_ITEMS, '');
+  const parsed = maxItemsRaw === '' ? undefined : Number.parseInt(maxItemsRaw, 10);
+  const maxItems = parsed !== undefined && Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
+  const publishedRaw = pick(env.LIVE_FEED_PUBLISHED_AT, '');
+  const publishedAt = publishedRaw !== '' && !Number.isNaN(Date.parse(publishedRaw)) ? publishedRaw : undefined;
+  return {
+    url,
+    name: pick(env.LIVE_FEED_NAME, 'phishing-database'),
+    format,
+    path: pick(env.LIVE_FEED_PATH, 'urls'),
+    urlKey: pick(env.LIVE_FEED_URL_KEY, 'url'),
+    publishedKey: pick(env.LIVE_FEED_PUBLISHED_KEY, 'dateadded'),
+    claim,
+    ...(maxItems === undefined ? {} : { maxItems }),
+    ...(publishedAt === undefined ? {} : { publishedAt })
+  };
+}
+
 async function start(): Promise<void> {
   if (!isProd) {
     const { createServer } = await import('vite');
@@ -207,6 +260,30 @@ async function start(): Promise<void> {
     });
     console.log(
       JSON.stringify({ event: 'world_reader', baseUrl: worldReader.baseUrl, intervalMs: worldReader.intervalMs })
+    );
+  }
+  const feedReader = resolveFeedReaderConfig(process.env);
+  if (feedReader !== null) {
+    const feed = startFeed({
+      url: feedReader.url,
+      name: feedReader.name,
+      format: feedReader.format,
+      path: feedReader.path,
+      urlKey: feedReader.urlKey,
+      publishedKey: feedReader.publishedKey,
+      assertedClaim: feedReader.claim,
+      ...(feedReader.publishedAt !== undefined ? { publishedAt: feedReader.publishedAt } : {}),
+      ...(feedReader.maxItems !== undefined ? { maxItems: feedReader.maxItems } : {}),
+      pollMs: FEED_POLL_MS,
+      onObservation: (observation, meta) => {
+        pipeline.ingest(observation, meta);
+      }
+    });
+    // First poll now: the reader's own timer starts after one interval, which
+    // at feed cadence would leave boot with an empty feed for ten minutes.
+    void feed.poll();
+    console.log(
+      JSON.stringify({ event: 'feed_reader', feed: feedReader.name, url: feedReader.url, pollMs: FEED_POLL_MS })
     );
   }
 }
